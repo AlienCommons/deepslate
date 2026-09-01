@@ -12,6 +12,7 @@ import type { RenderLayer } from './RenderLayer.js'
 import { Renderer } from './Renderer.js'
 import { ShaderProgram } from './ShaderProgram.js'
 import type { TextureAtlasProvider } from './TextureAtlas.js'
+import type { TextureAnimation } from './TextureAtlas.js'
 
 const vsColor = `
   attribute vec4 vertPos;
@@ -94,6 +95,7 @@ export class StructureRenderer extends Renderer {
 	private readonly outlineMesh: Mesh = new Mesh()
 	private invisibleBlocksMesh: Mesh = new Mesh()
 	private readonly atlasTexture: WebGLTexture
+	private readonly textureAnimations: TextureAnimation[]
 	public useInvisibleBlocks: boolean
 
 	private readonly chunkBuilder: ChunkBuilder
@@ -122,6 +124,7 @@ export class StructureRenderer extends Renderer {
 		this.outlineMesh = this.getOutlineMesh()
 		this.invisibleBlocksMesh = this.getInvisibleBlocksMesh()
 		this.atlasTexture = this.createAtlasTexture(this.resources.getTextureAtlas())
+		this.textureAnimations = this.resources.getTextureAnimations?.() ?? []
 	}
 
 	public setStructure(structure: StructureProvider) {
@@ -211,14 +214,15 @@ export class StructureRenderer extends Renderer {
 		this.drawMesh(this.invisibleBlocksMesh, { pos: true, color: true })
 	}
 
-	public drawStructure(viewMatrix: mat4) {
+	public drawStructure(viewMatrix: mat4, elapsedMs = performance.now()) {
 		this.setShader(this.shaderProgram)
+		this.updateTextureAnimations(this.atlasTexture, this.textureAnimations, elapsedMs)
 		this.setTexture(this.atlasTexture, this.resources.getPixelSize?.())
 		this.prepareDraw(viewMatrix)
 
 		RENDER_LAYERS.forEach(layer => {
 			this.prepareRenderLayer(layer)
-			this.chunkBuilder.getMeshes(layer).forEach(mesh => {
+			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
 				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true })
 			})
 		})
@@ -231,7 +235,7 @@ export class StructureRenderer extends Renderer {
 
 		RENDER_LAYERS.forEach(layer => {
 			this.prepareRenderLayer(layer)
-			this.chunkBuilder.getMeshes(layer).forEach(mesh => {
+			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
 				this.drawMesh(mesh, { pos: true, color: true, normal: true, blockPos: true })
 			})
 		})

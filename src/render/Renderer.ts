@@ -2,6 +2,8 @@ import { mat4 } from 'gl-matrix'
 import type { Mesh } from './Mesh.js'
 import type { RenderLayer } from './RenderLayer.js'
 import { ShaderProgram } from './ShaderProgram.js'
+import { getTextureAnimationFrame } from './TextureAtlas.js'
+import type { TextureAnimation } from './TextureAtlas.js'
 
 const vsSource = `
   attribute vec4 vertPos;
@@ -55,6 +57,7 @@ export class Renderer {
 	protected projMatrix: mat4
 	private activeShader: WebGLProgram
 	private pixelSize: number = 0
+	private readonly animationFrames = new WeakMap<TextureAnimation, number>()
 
 	constructor(
 		protected readonly gl: WebGLRenderingContext
@@ -83,7 +86,7 @@ export class Renderer {
 		this.gl.depthFunc(this.gl.LEQUAL)
 
 		this.gl.enable(this.gl.BLEND)
-		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA)
+		this.gl.blendFuncSeparate(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA)
 
 		this.gl.enable(this.gl.CULL_FACE)
 		this.gl.cullFace(this.gl.BACK)
@@ -120,6 +123,28 @@ export class Renderer {
 		this.gl.generateMipmap(this.gl.TEXTURE_2D)
 		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST)
 		return texture
+	}
+
+	protected updateTextureAnimations(texture: WebGLTexture, animations: TextureAnimation[], elapsedMs: number) {
+		let changed = false
+		this.gl.bindTexture(this.gl.TEXTURE_2D, texture)
+		for (const animation of animations) {
+			const frameIndex = getTextureAnimationFrame(animation, elapsedMs)
+			if (this.animationFrames.get(animation) === frameIndex) continue
+			const frame = animation.frames[frameIndex]
+			this.gl.texSubImage2D(
+				this.gl.TEXTURE_2D,
+				0,
+				animation.x,
+				animation.y,
+				this.gl.RGBA,
+				this.gl.UNSIGNED_BYTE,
+				frame.image,
+			)
+			this.animationFrames.set(animation, frameIndex)
+			changed = true
+		}
+		if (changed) this.gl.generateMipmap(this.gl.TEXTURE_2D)
 	}
 
 	protected prepareDraw(viewMatrix: mat4) {

@@ -3,9 +3,40 @@ import { isPowerOfTwo, upperPowerOfTwo } from '../math/index.js'
 
 export type UV = [number, number, number, number]
 
+export type TextureAnimationMetadata = {
+	animation?: {
+		frametime?: number,
+		frames?: (number | { index: number, time?: number })[],
+		interpolate?: boolean,
+	},
+}
+
+export type TextureAnimationFrame = {
+	image: ImageData,
+	durationMs: number,
+}
+
+export type TextureAnimation = {
+	x: number,
+	y: number,
+	frames: TextureAnimationFrame[],
+}
+
+export function getTextureAnimationFrame(animation: TextureAnimation, elapsedMs: number) {
+	const duration = animation.frames.reduce((total, frame) => total + frame.durationMs, 0)
+	if (duration <= 0) return 0
+	let time = ((elapsedMs % duration) + duration) % duration
+	for (let index = 0; index < animation.frames.length; index += 1) {
+		time -= animation.frames[index].durationMs
+		if (time < 0) return index
+	}
+	return animation.frames.length - 1
+}
+
 export interface TextureAtlasProvider {
 	getTextureAtlas(): ImageData
 	getTextureUV(texture: Identifier): UV
+	getTextureAnimations?(): TextureAnimation[]
 	getPixelSize?(): number;
 }
 
@@ -15,6 +46,7 @@ export class TextureAtlas implements TextureAtlasProvider {
 	constructor(
 		private readonly img: ImageData,
 		private readonly idMap: Record<string, UV>,
+		private readonly animations: TextureAnimation[] = [],
 	) {
 		if (!isPowerOfTwo(img.width) || !isPowerOfTwo(img.height)) {
 			throw new Error(`Expected texture atlas dimensions to be powers of two, got ${img.width}x${img.height}.`)
@@ -34,7 +66,11 @@ export class TextureAtlas implements TextureAtlasProvider {
 		return this.part / 16
 	}
 
-	public static async fromBlobs(textures: { [id: string]: Blob }): Promise<TextureAtlas> {   
+	public getTextureAnimations() {
+		return this.animations
+	}
+
+	public static async fromBlobs(textures: { [id: string]: Blob }, metadata: Record<string, TextureAnimationMetadata> = {}): Promise<TextureAtlas> {
 		const initialWidth = Math.sqrt(Object.keys(textures).length + 1)
 		const width = upperPowerOfTwo(initialWidth)
 		const pixelWidth = width * 16
@@ -47,6 +83,7 @@ export class TextureAtlas implements TextureAtlasProvider {
 		this.drawInvalidTexture(ctx)
 
 		const idMap: Record<string, UV> = {}
+		const animations: TextureAnimation[] = []
 		let index = 1
 		await Promise.all(Object.keys(textures).map(async (id) => {
 			const u = (index % width)
@@ -54,10 +91,30 @@ export class TextureAtlas implements TextureAtlasProvider {
 			index += 1
 			idMap[id] = [part * u, part * v, part * u + part, part * v + part]
 			const img = await createImageBitmap(textures[id])
-			ctx.drawImage(img, 0, 0, 16, 16, 16 * u, 16 * v, 16, 16)
+			const frameSize = img.width
+			const frameCount = img.height >= frameSize && img.height % frameSize === 0 ? img.height / frameSize : 1
+			ctx.drawImage(img, 0, 0, img.width, frameSize, 16 * u, 16 * v, 16, 16)
+
+			if (frameCount > 1) {
+				const animation = metadata[id]?.animation
+				const defaultTime = animation?.frametime ?? 1
+				const sequence = animation?.frames ?? Array.from({ length: frameCount }, (_, frame) => frame)
+				const frameCanvas = document.createElement('canvas')
+				frameCanvas.width = 16
+				frameCanvas.height = 16
+				const frameContext = frameCanvas.getContext('2d')!
+				const frames = sequence.map(entry => {
+					const frame = typeof entry === 'number' ? entry : entry.index
+					const time = typeof entry === 'number' ? defaultTime : entry.time ?? defaultTime
+					frameContext.clearRect(0, 0, 16, 16)
+					frameContext.drawImage(img, 0, frame * frameSize, img.width, frameSize, 0, 0, 16, 16)
+					return { image: frameContext.getImageData(0, 0, 16, 16), durationMs: time * 50 }
+				})
+				animations.push({ x: 16 * u, y: 16 * v, frames })
+			}
 		}))
 
-		return new TextureAtlas(ctx.getImageData(0, 0, pixelWidth, pixelWidth), idMap)
+		return new TextureAtlas(ctx.getImageData(0, 0, pixelWidth, pixelWidth), idMap, animations)
 	}
 
 	public static empty() {

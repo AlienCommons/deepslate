@@ -7,12 +7,14 @@ import type { FluidCell, FluidRenderContext, FluidState } from './FluidRenderer.
 import { Mesh } from './Mesh.js'
 import { RENDER_LAYERS, resolveRenderLayer } from './RenderLayer.js'
 import type { RenderLayer } from './RenderLayer.js'
+import { sortBackToFront } from './RenderOrder.js'
 import { SpecialRenderers } from './SpecialRenderer.js'
 
 type ChunkMeshes = Record<RenderLayer, Mesh>
 
 export class ChunkBuilder {
 	private chunks: ChunkMeshes[][][] = []
+	private readonly chunkCenters = new WeakMap<ChunkMeshes, vec3>()
 	private readonly chunkSize: vec3
 
 	constructor(
@@ -112,8 +114,11 @@ export class ChunkBuilder {
 		}
 	}
 
-	public getMeshes(layer?: RenderLayer): Mesh[] {
-		const chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
+	public getMeshes(layer?: RenderLayer, viewMatrix?: mat4): Mesh[] {
+		let chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
+		if (layer === 'translucent' && viewMatrix !== undefined) {
+			chunks = sortBackToFront(chunks, chunk => this.chunkCenters.get(chunk) ?? [0, 0, 0], viewMatrix)
+		}
 		const layers = layer === undefined ? RENDER_LAYERS : [layer]
 		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))
 	}
@@ -186,12 +191,18 @@ export class ChunkBuilder {
 		if (!this.chunks[x]) this.chunks[x] = []
 		if (!this.chunks[x][y]) this.chunks[x][y] = []
 		if (!this.chunks[x][y][z]) {
-			this.chunks[x][y][z] = {
+			const chunk: ChunkMeshes = {
 				opaque: new Mesh(),
 				cutout: new Mesh(),
 				emissive: new Mesh(),
 				translucent: new Mesh(),
 			}
+			this.chunks[x][y][z] = chunk
+			this.chunkCenters.set(chunk, [
+				(chunkPos[0] + 0.5) * this.chunkSize[0],
+				(chunkPos[1] + 0.5) * this.chunkSize[1],
+				(chunkPos[2] + 0.5) * this.chunkSize[2],
+			])
 		}
 
 		return this.chunks[x][y][z]
