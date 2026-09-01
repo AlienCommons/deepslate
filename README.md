@@ -6,9 +6,9 @@ This fork is being developed for the AlienCommons schematic previewer. It retain
 
 ## Status
 
-This fork is under active development and has not yet been published as a separate npm package. APIs and rendering behavior may change while the new renderer is being developed.
+This fork is under active development and has not yet been published as a separate npm package. The first rendering overhaul is implemented, including explicit render layers, neighbor-aware fluid geometry, clipped waterlogged volumes, animated fluid textures, emissive rendering, and transparent chunk sorting. APIs may still change before the first release.
 
-Rendering behavior is currently validated against Minecraft Java Edition 26.2, the latest stable release selected for this overhaul.
+Rendering behavior is validated against Minecraft Java Edition 26.2, the latest stable release selected for this overhaul. See [Rendering validation](docs/rendering-validation.md) for the comparison scope, results, and known differences.
 
 For the original stable package, see [misode/deepslate](https://github.com/misode/deepslate).
 
