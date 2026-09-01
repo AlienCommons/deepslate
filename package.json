@@ -55,7 +55,6 @@
     "demo": "vite ./demo",
     "benchmark": "esno benchmarks/index.ts",
     "lint": "eslint .",
-    "version": "bash scripts/version.sh",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
