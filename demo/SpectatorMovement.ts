@@ -1,0 +1,14 @@
+export function getSpectatorMovement(
+	yaw: number,
+	forward: number,
+	right: number,
+	vertical: number,
+): [number, number, number] {
+	const length = Math.hypot(forward, right, vertical)
+	const scale = length > 1 ? 1 / length : 1
+	return [
+		(-Math.sin(yaw) * forward + Math.cos(yaw) * right) * scale,
+		vertical * scale,
+		(-Math.cos(yaw) * forward - Math.sin(yaw) * right) * scale,
+	]
+}

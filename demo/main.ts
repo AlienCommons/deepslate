@@ -1,220 +1,197 @@
 import { mat4 } from 'gl-matrix'
-import type { ItemRendererResources, ItemRenderingContext, NbtTag, Resources, Voxel } from '../src/index.js'
-import { BlockDefinition, BlockModel, Identifier, ItemRenderer, ItemStack, jsonToNbt, NormalNoise, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo, VoxelRenderer, XoroshiroRandom } from '../src/index.js'
-import { } from '../src/nbt/Util.js'
-import { ItemModel } from '../src/render/ItemModel.js'
+import type { Resources, TextureAnimation } from '../src/index.js'
+import { BlockDefinition, BlockModel, Identifier, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
+import { getSpectatorMovement } from './SpectatorMovement.js'
 
+const MINECRAFT_VERSION = '26.2'
+const MCMETA = 'https://raw.githubusercontent.com/misode/mcmeta/'
+const resourceUrl = (branch: string, path: string) => `${MCMETA}${MINECRAFT_VERSION}-${branch}/${path}`
 
-class InteractiveCanvas {
-	private xRotation = 0.8
-	private yRotation = 0.5
+class SpectatorControls {
+	private readonly keys = new Set<string>()
+	private readonly position: [number, number, number]
+	private yaw = 0
+	private pitch = 0.12
+	private lastFrame = performance.now()
 
 	constructor(
-		canvas: HTMLCanvasElement,
-		private readonly onRender: (view: mat4) => void,
-		private readonly center?: [number, number, number],
-		private viewDist = 4,
+		private readonly canvas: HTMLCanvasElement,
+		private readonly render: (view: mat4, elapsedMs: number) => void,
+		start: [number, number, number],
 	) {
-		let dragPos: null | [number, number] = null
-		canvas.addEventListener('mousedown', evt => {
-			if (evt.button === 0) {
-				dragPos = [evt.clientX, evt.clientY]
-			}
+		this.position = start
+		canvas.addEventListener('click', () => canvas.requestPointerLock())
+		document.addEventListener('mousemove', event => {
+			if (document.pointerLockElement !== canvas) return
+			this.yaw -= event.movementX * 0.0025
+			this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch + event.movementY * 0.0025))
 		})
-		canvas.addEventListener('mousemove', evt => {
-			if (dragPos) {
-				this.yRotation += (evt.clientX - dragPos[0]) / 100
-				this.xRotation += (evt.clientY - dragPos[1]) / 100
-				dragPos = [evt.clientX, evt.clientY]
-				this.redraw()
-			}
+		document.addEventListener('keydown', event => {
+			this.keys.add(event.code)
+			if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) event.preventDefault()
 		})
-		canvas.addEventListener('mouseup', () => {
-			dragPos = null
+		document.addEventListener('keyup', event => this.keys.delete(event.code))
+		document.addEventListener('pointerlockchange', () => {
+			document.body.classList.toggle('is-playing', document.pointerLockElement === canvas)
 		})
-		canvas.addEventListener('wheel', evt => {
-			evt.preventDefault()
-			this.viewDist += evt.deltaY / 100
-			this.redraw()
-		})
-
-		this.redraw()
+		requestAnimationFrame(time => this.frame(time))
 	}
 
-	public redraw() {
-		requestAnimationFrame(() => this.renderImmediately())
-	}
-
-	private renderImmediately() {
-		this.yRotation = this.yRotation % (Math.PI * 2)
-		this.xRotation = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.xRotation))
-		this.viewDist = Math.max(1, this.viewDist)
+	private frame(time: number) {
+		const delta = Math.min((time - this.lastFrame) / 1000, 0.05)
+		this.lastFrame = time
+		const speed = (this.keys.has('ControlLeft') || this.keys.has('ControlRight')) ? 16 : 6
+		const forward = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0)
+		const right = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0)
+		const vertical = (this.keys.has('Space') ? 1 : 0) - (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 1 : 0)
+		const movement = getSpectatorMovement(this.yaw, forward, right, vertical)
+		this.position[0] += movement[0] * speed * delta
+		this.position[1] += movement[1] * speed * delta
+		this.position[2] += movement[2] * speed * delta
 
 		const view = mat4.create()
-		mat4.translate(view, view, [0, 0, -this.viewDist])
-		mat4.rotate(view, view, this.xRotation, [1, 0, 0])
-		mat4.rotate(view, view, this.yRotation, [0, 1, 0])
-		if (this.center) {
-			mat4.translate(view, view, [-this.center[0], -this.center[1], -this.center[2]])
-		}
-
-		this.onRender(view)
+		mat4.rotateX(view, view, this.pitch)
+		mat4.rotateY(view, view, this.yaw)
+		mat4.translate(view, view, [-this.position[0], -this.position[1], -this.position[2]])
+		this.render(view, time)
+		requestAnimationFrame(next => this.frame(next))
 	}
 }
 
-const MCMETA = 'https://raw.githubusercontent.com/misode/mcmeta/'
+function createValidationStructure() {
+	const structure = new Structure([20, 9, 20])
+	for (let x = 0; x < 20; x += 1) {
+		for (let z = 0; z < 20; z += 1) structure.addBlock([x, 0, z], 'minecraft:stone')
+	}
+
+	for (let y = 1; y <= 3; y += 1) {
+		for (let edge = 1; edge <= 7; edge += 1) {
+			structure.addBlock([1, y, edge], 'minecraft:glass')
+			structure.addBlock([7, y, edge], 'minecraft:glass')
+			structure.addBlock([edge, y, 1], 'minecraft:glass')
+			structure.addBlock([edge, y, 7], 'minecraft:glass')
+		}
+	}
+	for (let x = 2; x <= 6; x += 1) {
+		for (let z = 2; z <= 6; z += 1) {
+			structure.addBlock([x, 1, z], 'minecraft:water', { level: '0' })
+			structure.addBlock([x, 2, z], 'minecraft:water', { level: '0' })
+		}
+	}
+
+	for (let x = 1; x <= 8; x += 1) {
+		structure.addBlock([x, 4, 10], 'minecraft:smooth_stone')
+		structure.addBlock([x, 5, 10], 'minecraft:water', { level: String(Math.min(7, x - 1)) })
+	}
+
+	structure.addBlock([11, 1, 3], 'minecraft:oak_fence', { north: 'false', east: 'false', south: 'false', west: 'false', waterlogged: 'true' })
+	structure.addBlock([13, 1, 3], 'minecraft:oak_slab', { type: 'bottom', waterlogged: 'true' })
+	structure.addBlock([15, 1, 3], 'minecraft:oak_slab', { type: 'top', waterlogged: 'true' })
+	structure.addBlock([11, 1, 5], 'minecraft:oak_stairs', { facing: 'north', half: 'bottom', shape: 'straight', waterlogged: 'true' })
+	structure.addBlock([13, 1, 5], 'minecraft:oak_stairs', { facing: 'east', half: 'bottom', shape: 'inner_left', waterlogged: 'true' })
+	structure.addBlock([15, 1, 5], 'minecraft:oak_stairs', { facing: 'south', half: 'bottom', shape: 'outer_right', waterlogged: 'true' })
+	structure.addBlock([11, 1, 7], 'minecraft:oak_trapdoor', { facing: 'north', half: 'bottom', open: 'false', powered: 'false', waterlogged: 'true' })
+	structure.addBlock([13, 1, 7], 'minecraft:oak_trapdoor', { facing: 'north', half: 'bottom', open: 'true', powered: 'false', waterlogged: 'true' })
+
+	for (let y = 1; y <= 5; y += 1) structure.addBlock([16, y, 14], 'minecraft:lava', { level: y === 5 ? '0' : '8' })
+	for (let y = 1; y <= 5; y += 1) structure.addBlock([16, y, 13], 'minecraft:glass')
+	structure.addBlock([15, 1, 15], 'minecraft:iron_block')
+	structure.addBlock([16, 1, 15], 'minecraft:redstone_block')
+	structure.addBlock([17, 1, 15], 'minecraft:observer', { facing: 'north', powered: 'false' })
+	return structure
+}
+
+function getAnimations(atlas: CanvasRenderingContext2D, uvMap: Record<string, [number, number, number, number]>): TextureAnimation[] {
+	const frameTimes: Record<string, number> = {
+		'block/water_still': 2,
+		'block/water_flow': 2,
+		'block/lava_still': 2,
+		'block/lava_flow': 3,
+	}
+	return Object.entries(frameTimes).flatMap(([id, ticks]) => {
+		const [x, y, width, height] = uvMap[id] ?? []
+		if (!width || height <= width) return []
+		const frames = Array.from({ length: Math.floor(height / width) }, (_, index) => ({
+			image: atlas.getImageData(x, y + index * width, width, width),
+			durationMs: ticks * 50,
+		}))
+		return [{ x, y, frames }]
+	})
+}
 
 Promise.all([
-	fetch(`${MCMETA}registries/item/data.min.json`).then(r => r.json()),
-	fetch(`${MCMETA}summary/assets/block_definition/data.min.json`).then(r => r.json()),
-	fetch(`${MCMETA}summary/assets/model/data.min.json`).then(r => r.json()),
-	fetch(`${MCMETA}summary/assets/item_definition/data.min.json`).then(r => r.json()),
-	fetch(`${MCMETA}summary/item_components/data.min.json`).then(r => r.json()),
-	fetch(`${MCMETA}atlas/all/data.min.json`).then(r => r.json()),
-	new Promise<HTMLImageElement>(res => {
+	fetch(resourceUrl('summary', 'assets/block_definition/data.min.json')).then(response => response.json()),
+	fetch(resourceUrl('summary', 'assets/model/data.min.json')).then(response => response.json()),
+	fetch(resourceUrl('atlas', 'all/data.min.json')).then(response => response.json()),
+	new Promise<HTMLImageElement>((resolve, reject) => {
 		const image = new Image()
-		image.onload = () => res(image)
-		image.crossOrigin = 'Anonymous'
-		image.src = `${MCMETA}atlas/all/atlas.png`
+		image.onload = () => resolve(image)
+		image.onerror = reject
+		image.crossOrigin = 'anonymous'
+		image.src = resourceUrl('atlas', 'all/atlas.png')
 	}),
-]).then(([items, blockstates, models, item_models, item_components, uvMap, atlas]) => {
-	
-	// === Prepare assets for item and structure rendering ===
-
-	const itemList = document.createElement('datalist')
-	itemList.id = 'item-list'
-	items.forEach((item: any) => {
-		const option = document.createElement('option')
-		option.textContent = item
-		itemList.append(option)
-	})
-	document.getElementById('item-input')?.after(itemList)
-
+]).then(([blockstates, models, uvMap, atlasImage]) => {
 	const blockDefinitions: Record<string, BlockDefinition> = {}
-	Object.keys(blockstates).forEach(id => {
-		blockDefinitions['minecraft:' + id] = BlockDefinition.fromJson(blockstates[id])
-	})
-
+	Object.keys(blockstates).forEach(id => blockDefinitions[Identifier.create(id).toString()] = BlockDefinition.fromJson(blockstates[id]))
 	const blockModels: Record<string, BlockModel> = {}
-	Object.keys(models).forEach(id => {
-		blockModels['minecraft:' + id] = BlockModel.fromJson(models[id])
-	})
-	Object.values(blockModels).forEach((m: any) => m.flatten({ getBlockModel: (id: any) => blockModels[id] }))
+	Object.keys(models).forEach(id => blockModels[Identifier.create(id).toString()] = BlockModel.fromJson(models[id]))
+	Object.values(blockModels).forEach(model => model.flatten({ getBlockModel: id => blockModels[id.toString()] }))
 
-
-	const itemModels: Record<string, ItemModel> = {}
-	Object.keys(item_models).forEach(id => {
-		itemModels['minecraft:' + id] = ItemModel.fromJson(item_models[id].model)
-	})
-
-	const itemComponents: Record<string, Map<string, NbtTag>> = {}
-	Object.keys(item_components).forEach(id => {
-		const components = new Map<string, NbtTag>()
-		Object.keys(item_components[id]).forEach(c_id => {
-			components.set(c_id, jsonToNbt(item_components[id][c_id]))
-		})
-		itemComponents['minecraft:' + id] = components
-	})
-
+	const atlasSize = upperPowerOfTwo(Math.max(atlasImage.width, atlasImage.height))
 	const atlasCanvas = document.createElement('canvas')
-	const atlasSize = upperPowerOfTwo(Math.max(atlas.width, atlas.height))
 	atlasCanvas.width = atlasSize
 	atlasCanvas.height = atlasSize
-	const atlasCtx = atlasCanvas.getContext('2d')!
-	atlasCtx.drawImage(atlas, 0, 0)
-	const atlasData = atlasCtx.getImageData(0, 0, atlasSize, atlasSize)
-	const idMap: Record<string, any> = {}
+	const atlasContext = atlasCanvas.getContext('2d')!
+	atlasContext.drawImage(atlasImage, 0, 0)
+	const idMap: Record<string, [number, number, number, number]> = {}
 	Object.keys(uvMap).forEach(id => {
-		const [u, v, du, dv] = uvMap[id]
-		const dv2 = (du !== dv && id.startsWith('block/')) ? du : dv
-		idMap[Identifier.create(id).toString()] = [u / atlasSize, v / atlasSize, (u + du) / atlasSize, (v + dv2) / atlasSize]
+		const [u, v, width, height] = uvMap[id]
+		const visibleHeight = width !== height && id.startsWith('block/') ? width : height
+		idMap[Identifier.create(id).toString()] = [u / atlasSize, v / atlasSize, (u + width) / atlasSize, (v + visibleHeight) / atlasSize]
 	})
-	const textureAtlas = new TextureAtlas(atlasData, idMap)
+	const animations = getAnimations(atlasContext, uvMap)
+	const textureAtlas = new TextureAtlas(atlasContext.getImageData(0, 0, atlasSize, atlasSize), idMap, animations)
 
-	const resources: Resources & ItemRendererResources = {
-		getBlockDefinition(id) { return blockDefinitions[id.toString()] },
-		getBlockModel(id) { return blockModels[id.toString()] },
-		getTextureUV(id) { return textureAtlas.getTextureUV(id) },
-		getTextureAtlas() { return textureAtlas.getTextureAtlas() },
-		getPixelSize() { return textureAtlas.getPixelSize() },
-		getBlockFlags(id) { return { opaque: false } },
-		getBlockProperties(id) { return null },
-		getDefaultBlockProperties(id) { return null },
-		getItemModel(id) { return itemModels[id.toString()] },
-		getItemComponents(id) { return itemComponents[id.toString()] },
+	const fullBlocks = new Set(['stone', 'smooth_stone', 'iron_block', 'redstone_block', 'observer'])
+	const resources: Resources = {
+		getBlockDefinition: id => blockDefinitions[id.toString()],
+		getBlockModel: id => blockModels[id.toString()],
+		getTextureUV: id => textureAtlas.getTextureUV(id),
+		getTextureAtlas: () => textureAtlas.getTextureAtlas(),
+		getTextureAnimations: () => textureAtlas.getTextureAnimations(),
+		getPixelSize: () => textureAtlas.getPixelSize(),
+		getBlockFlags(id) {
+			const name = id.path
+			if (name === 'glass') return { opaque: false, self_culling: true, render_layer: 'translucent' }
+			if (name === 'lava') return { opaque: false, render_layer: 'emissive' }
+			if (name === 'water') return { opaque: false, self_culling: true, render_layer: 'translucent' }
+			return { opaque: fullBlocks.has(name), render_layer: name.includes('leaves') ? 'cutout' : 'opaque' }
+		},
+		getBlockProperties: () => null,
+		getDefaultBlockProperties: () => null,
 	}
 
-	// === Item rendering ===
-
-	const context: ItemRenderingContext = {
-		'bundle/selected_item': 0,
-	}
-
-	const itemCanvas = document.getElementById('item-display') as HTMLCanvasElement
-	const itemGl = itemCanvas.getContext('webgl')!
-	const itemInput = document.getElementById('item-input') as HTMLInputElement
-	itemInput.value = localStorage.getItem('deepslate_demo_item') ?? 'stone'
-	const itemStack = ItemStack.fromString(itemInput.value)
-	const itemRenderer = new ItemRenderer(itemGl, itemStack, resources, context)
-
-	itemInput.addEventListener('keyup', () => {
-		try {
-			const id = itemInput.value
-			const itemStack = ItemStack.fromString(itemInput.value)
-			itemGl.clear(itemGl.DEPTH_BUFFER_BIT | itemGl.COLOR_BUFFER_BIT)
-			itemRenderer.setItem(itemStack, context)
-			itemRenderer.drawItem()
-			itemInput.classList.remove('invalid')
-			localStorage.setItem('deepslate_demo_item', id)
-		} catch (e) {
-			console.error(e)
-			itemInput.classList.add('invalid')
-		}
-	})
-	itemRenderer.drawItem()
-
-	// === Structure rendering ===
-
-	const structure = new Structure([3, 2, 2])
-	const size = structure.getSize()
-	structure.addBlock([1, 0, 0], 'minecraft:grass_block', { snowy: 'false' })
-	structure.addBlock([2, 0, 0], 'minecraft:stone')
-	structure.addBlock([1, 1, 0], 'minecraft:skeleton_skull', { rotation: '15' })
-	structure.addBlock([2, 1, 0], 'minecraft:acacia_fence', { waterlogged: 'true', north: 'true' })
-	structure.addBlock([0, 0, 0], 'minecraft:wall_torch', { facing: 'west' })
-	structure.addBlock([1, 0, 1], 'minecraft:oak_trapdoor', { facing: 'south', half: 'bottom', open: 'true', powered: 'false', waterlogged: 'false' })
-
-	const structureCanvas = document.getElementById('structure-display') as HTMLCanvasElement
-	const structureGl = structureCanvas.getContext('webgl')!
-	const structureRenderer = new StructureRenderer(structureGl, structure, resources)
-
-	new InteractiveCanvas(structureCanvas, view => {
-		structureRenderer.drawStructure(view)
-	}, [size[0] / 2, size[1] / 2, size[2] / 2])
-
-	// === Voxel rendering ===
-
-	const voxelCanvas = document.getElementById('voxel-display') as HTMLCanvasElement
-	const voxelCtx = voxelCanvas.getContext('webgl')!
-	const voxelRenderer = new VoxelRenderer(voxelCtx)
-
-	const voxels: Voxel[] = []
-	const random = XoroshiroRandom.create(BigInt(123))
-	const noise = new NormalNoise(random, { firstOctave: -5, amplitudes: [1, 1, 1] })
-	const sampleRegion = 50
-	for (let x = -sampleRegion; x <= sampleRegion; x += 1) {
-		for (let y = -sampleRegion; y <= sampleRegion; y += 1) {
-			for (let z = -sampleRegion; z <= sampleRegion; z += 1) {
-				const d = noise.sample(x, y, z)
-				if (d > 0) {
-					voxels.push({ x, y, z, color: [200, 200, 200] })
-				}
-			}
+	const canvas = document.getElementById('preview') as HTMLCanvasElement
+	const gl = canvas.getContext('webgl', { alpha: false, antialias: true })!
+	const renderer = new StructureRenderer(gl, createValidationStructure(), resources, { chunkSize: 4, useInvisibleBlockBuffer: false })
+	gl.clearColor(0.48, 0.68, 0.92, 1)
+	const resize = () => {
+		const ratio = Math.min(devicePixelRatio, 2)
+		const width = Math.floor(canvas.clientWidth * ratio)
+		const height = Math.floor(canvas.clientHeight * ratio)
+		if (canvas.width !== width || canvas.height !== height) {
+			canvas.width = width
+			canvas.height = height
+			renderer.setViewport(0, 0, width, height)
 		}
 	}
-	voxelRenderer.setVoxels(voxels)
-
-	new InteractiveCanvas(voxelCanvas, view => {
-		voxelRenderer.draw(view)
-	}, [0, 0, 0], sampleRegion * 3)
+	new ResizeObserver(resize).observe(canvas)
+	resize()
+	new SpectatorControls(canvas, (view, elapsedMs) => {
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		renderer.drawStructure(view, elapsedMs)
+	}, [10, 5, 25])
+}).catch(error => {
+	console.error(error)
+	document.getElementById('status')!.textContent = `Failed to load Minecraft ${MINECRAFT_VERSION} resources.`
 })
