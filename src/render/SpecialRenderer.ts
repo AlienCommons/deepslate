@@ -1,34 +1,15 @@
 import { mat4 } from 'gl-matrix'
 import type { BlockState } from '../core/index.js'
-import { Direction, Identifier } from '../core/index.js'
+import { Identifier } from '../core/index.js'
 import type { NbtCompound, NbtList } from '../nbt/index.js'
 import { NbtType } from '../nbt/index.js'
 import { Color } from '../util/index.js'
-import { BlockColors } from './BlockColors.js'
 import type { BlockModelElement } from './BlockModel.js'
 import { BlockModel } from './BlockModel.js'
 import { Cull } from './Cull.js'
+import { getLegacyFluidMesh } from './FluidRenderer.js'
 import { Mesh } from './Mesh.js'
 import type { TextureAtlasProvider } from './TextureAtlas.js'
-
-function liquidRenderer(type: string, level: number, atlas: TextureAtlasProvider, cull: Cull, tintindex?: number) {
-	const y = cull['up'] ? 16 : [14.2, 12.5, 10.5, 9, 7, 5.3, 3.7, 1.9, 16, 16, 16, 16, 16, 16, 16, 16][level]
-	return new BlockModel(undefined, {
-		still: `block/${type}_still`,
-		flow: `block/${type}_flow`,
-	}, [{
-		from: [0, 0, 0],
-		to: [16, y, 16],
-		faces: {
-			up: { texture: '#still', tintindex, cullface: Direction.UP },
-			down: { texture: '#still', tintindex, cullface: Direction.DOWN },
-			north: { texture: '#flow', tintindex, cullface: Direction.NORTH },
-			east: { texture: '#flow', tintindex, cullface: Direction.EAST },
-			south: { texture: '#flow', tintindex, cullface: Direction.SOUTH },
-			west: { texture: '#flow', tintindex, cullface: Direction.WEST },
-		},
-	}]).getMesh(atlas, cull, BlockColors[type]?.({}))
-}
 
 const DyeColors: Record<string, Color> = {
 	white: Color.intToRgb(16383998),
@@ -1232,10 +1213,10 @@ export namespace SpecialRenderers {
 	export function getBlockMesh(block: BlockState, nbt: NbtCompound | undefined, atlas: TextureAtlasProvider, cull: Cull): Mesh {
 		const mesh = new Mesh()
 		if (block.is('water')) {
-			mesh.merge(liquidRenderer('water', getInt(block, 'level'), atlas, cull, 0))
+			mesh.merge(getLegacyFluidMesh('water', getInt(block, 'level'), atlas, cull, 0))
 		}
 		if (block.is('lava')) {
-			mesh.merge(liquidRenderer('lava', getInt(block, 'level'), atlas, cull))
+			mesh.merge(getLegacyFluidMesh('lava', getInt(block, 'level'), atlas, cull))
 		}
 		const chestRenderer = ChestRenderers.get(block.getName().toString())
 		if (chestRenderer !== undefined) {
@@ -1363,7 +1344,7 @@ export namespace SpecialRenderers {
 		}
 
 		if (!block.is('water') && !block.is('lava') && block.isWaterlogged()) {
-			mesh.merge(liquidRenderer('water', 0, atlas, cull, 0))
+			mesh.merge(getLegacyFluidMesh('water', 0, atlas, cull, 0))
 		}
 
 		const t = mat4.create()

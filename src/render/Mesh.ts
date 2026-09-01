@@ -1,6 +1,6 @@
 import type { mat4 } from 'gl-matrix'
-import type { Color } from '../index.js'
-import { Vector } from '../index.js'
+import { Vector } from '../math/Vector.js'
+import type { Color } from '../util/Color.js'
 import { Line } from './Line.js'
 import type { Quad } from './Quad.js'
 import { Vertex } from './Vertex.js'

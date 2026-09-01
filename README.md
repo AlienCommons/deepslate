@@ -8,6 +8,8 @@ This fork is being developed for the AlienCommons schematic previewer. It retain
 
 This fork is under active development and has not yet been published as a separate npm package. APIs and rendering behavior may change while the new renderer is being developed.
 
+Rendering behavior is currently validated against Minecraft Java Edition 26.2, the latest stable release selected for this overhaul.
+
 For the original stable package, see [misode/deepslate](https://github.com/misode/deepslate).
 
 ## Goals
