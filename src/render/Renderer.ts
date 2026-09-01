@@ -1,5 +1,6 @@
 import { mat4 } from 'gl-matrix'
 import type { Mesh } from './Mesh.js'
+import type { RenderLayer } from './RenderLayer.js'
 import { ShaderProgram } from './ShaderProgram.js'
 
 const vsSource = `
@@ -35,6 +36,7 @@ const fsSource = `
 
   uniform sampler2D sampler;
   uniform highp float pixelSize;
+  uniform highp float emissive;
 
   void main(void) {
 		vec4 texColor = texture2D(sampler, clamp(vTexCoord,
@@ -42,7 +44,8 @@ const fsSource = `
 			vTexLimit.zw - vec2(0.5, 0.5) * pixelSize
 		));
 		if(texColor.a < 0.01) discard;
-		gl_FragColor = vec4(texColor.xyz * vTintColor * vLighting, texColor.a);
+		float light = mix(vLighting, 1.0, emissive);
+		gl_FragColor = vec4(texColor.xyz * vTintColor * light, texColor.a);
   }
 `
 
@@ -124,6 +127,24 @@ export class Renderer {
 		this.setUniform('mProj', this.projMatrix as Float32List)
 		const location = this.gl.getUniformLocation(this.activeShader, 'pixelSize')    
 		this.gl.uniform1f(location, this.pixelSize)
+	}
+
+	protected prepareRenderLayer(layer: RenderLayer) {
+		const translucent = layer === 'translucent'
+		if (translucent) {
+			this.gl.enable(this.gl.BLEND)
+		} else {
+			this.gl.disable(this.gl.BLEND)
+		}
+		this.gl.depthMask(!translucent)
+
+		const location = this.gl.getUniformLocation(this.activeShader, 'emissive')
+		this.gl.uniform1f(location, layer === 'emissive' ? 1 : 0)
+	}
+
+	protected finishRenderLayers() {
+		this.gl.depthMask(true)
+		this.gl.enable(this.gl.BLEND)
 	}
 
 	protected drawMesh(mesh: Mesh, options: { pos?: boolean, color?: boolean, texture?: boolean, normal?: boolean, blockPos?: boolean }) {

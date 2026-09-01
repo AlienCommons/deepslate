@@ -2,10 +2,14 @@ import { mat4, vec3 } from 'gl-matrix'
 import type { PlacedBlock, Resources, StructureProvider } from '../index.js'
 import { BlockPos, Direction, Vector } from '../index.js'
 import { Mesh } from './Mesh.js'
+import { RENDER_LAYERS, resolveRenderLayer } from './RenderLayer.js'
+import type { RenderLayer } from './RenderLayer.js'
 import { SpecialRenderers } from './SpecialRenderer.js'
 
+type ChunkMeshes = Record<RenderLayer, Mesh>
+
 export class ChunkBuilder {
-	private chunks: {mesh: Mesh, transparentMesh: Mesh}[][][] = []
+	private chunks: ChunkMeshes[][][] = []
 	private readonly chunkSize: vec3
 
 	constructor(
@@ -29,14 +33,12 @@ export class ChunkBuilder {
 		
 		if (!chunkPositions) {
 			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
-				chunk.mesh.clear()
-				chunk.transparentMesh.clear()
+				RENDER_LAYERS.forEach(layer => chunk[layer].clear())
 			})))
 		} else {
 			chunkPositions.forEach(chunkPos => {
 				const chunk = this.getChunk(chunkPos)
-				chunk.mesh.clear()
-				chunk.transparentMesh.clear()
+				RENDER_LAYERS.forEach(layer => chunk[layer].clear())
 			})
 		}
 
@@ -75,11 +77,8 @@ export class ChunkBuilder {
 				}
 				if (!mesh.isEmpty()) {	
 					this.finishChunkMesh(mesh, b.pos)
-					if (this.resources.getBlockFlags(b.state.getName())?.semi_transparent){
-						chunk.transparentMesh.merge(mesh)
-					} else {
-						chunk.mesh.merge(mesh)
-					}
+					const layer = resolveRenderLayer(this.resources.getBlockFlags(b.state.getName()))
+					chunk[layer].merge(mesh)
 				}
 			} catch (e) {
 				console.error(`Error rendering block ${blockName}`, e)
@@ -88,21 +87,20 @@ export class ChunkBuilder {
 
 		if (!chunkPositions) {
 			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
-				chunk.mesh.rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true })
-				chunk.transparentMesh.rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true })
+				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true }))
 			})))
 		} else {
 			chunkPositions.forEach(chunkPos => {
 				const chunk = this.getChunk(chunkPos)
-				chunk.mesh.rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true })
-				chunk.transparentMesh.rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true })
+				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true }))
 			})
 		}
 	}
 
-	public getMeshes(): Mesh[] {
+	public getMeshes(layer?: RenderLayer): Mesh[] {
 		const chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
-		return chunks.flatMap(chunk => chunk.mesh.isEmpty() ? [] : chunk.mesh).concat(chunks.flatMap(chunk => chunk.transparentMesh.isEmpty() ? [] : chunk.transparentMesh))
+		const layers = layer === undefined ? RENDER_LAYERS : [layer]
+		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))
 	}
 
 	private needsCull(block: PlacedBlock, dir: Direction) {
@@ -133,14 +131,21 @@ export class ChunkBuilder {
 		}
 	}
 
-	private getChunk(chunkPos: vec3): {mesh: Mesh, transparentMesh: Mesh} {
+	private getChunk(chunkPos: vec3): ChunkMeshes {
 		const x = Math.abs(chunkPos[0]) * 2 + (chunkPos[0] < 0 ? 1 : 0)
 		const y = Math.abs(chunkPos[1]) * 2 + (chunkPos[1] < 0 ? 1 : 0)
 		const z = Math.abs(chunkPos[2]) * 2 + (chunkPos[2] < 0 ? 1 : 0)
 
 		if (!this.chunks[x]) this.chunks[x] = []
 		if (!this.chunks[x][y]) this.chunks[x][y] = []
-		if (!this.chunks[x][y][z]) this.chunks[x][y][z] = {mesh: new Mesh(), transparentMesh: new Mesh()}
+		if (!this.chunks[x][y][z]) {
+			this.chunks[x][y][z] = {
+				opaque: new Mesh(),
+				cutout: new Mesh(),
+				emissive: new Mesh(),
+				translucent: new Mesh(),
+			}
+		}
 
 		return this.chunks[x][y][z]
 	}

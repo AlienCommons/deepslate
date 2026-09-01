@@ -7,6 +7,8 @@ import type { BlockDefinitionProvider } from './BlockDefinition.js'
 import type { BlockModelProvider } from './BlockModel.js'
 import { ChunkBuilder } from './ChunkBuilder.js'
 import { Mesh } from './Mesh.js'
+import { RENDER_LAYERS } from './RenderLayer.js'
+import type { RenderLayer } from './RenderLayer.js'
 import { Renderer } from './Renderer.js'
 import { ShaderProgram } from './ShaderProgram.js'
 import type { TextureAtlasProvider } from './TextureAtlas.js'
@@ -61,6 +63,8 @@ const fsGrid = `
 
 export type BlockFlags = {
 	opaque?: boolean,
+	render_layer?: RenderLayer,
+	/** @deprecated Use render_layer: 'translucent'. */
 	semi_transparent?: boolean,
 	self_culling?: boolean,
 }
@@ -212,18 +216,26 @@ export class StructureRenderer extends Renderer {
 		this.setTexture(this.atlasTexture, this.resources.getPixelSize?.())
 		this.prepareDraw(viewMatrix)
 
-		this.chunkBuilder.getMeshes().forEach(mesh => {
-			this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true })
+		RENDER_LAYERS.forEach(layer => {
+			this.prepareRenderLayer(layer)
+			this.chunkBuilder.getMeshes(layer).forEach(mesh => {
+				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true })
+			})
 		})
+		this.finishRenderLayers()
 	}
 
 	public drawColoredStructure(viewMatrix: mat4) {
 		this.setShader(this.colorShaderProgram)
 		this.prepareDraw(viewMatrix)
 
-		this.chunkBuilder.getMeshes().forEach(mesh => {
-			this.drawMesh(mesh, { pos: true, color: true, normal: true, blockPos: true })
+		RENDER_LAYERS.forEach(layer => {
+			this.prepareRenderLayer(layer)
+			this.chunkBuilder.getMeshes(layer).forEach(mesh => {
+				this.drawMesh(mesh, { pos: true, color: true, normal: true, blockPos: true })
+			})
 		})
+		this.finishRenderLayers()
 	}
 
 	public drawOutline(viewMatrix: mat4, pos: vec3) {
