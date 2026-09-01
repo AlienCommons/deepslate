@@ -1,6 +1,9 @@
 import { mat4, vec3 } from 'gl-matrix'
 import type { PlacedBlock, Resources, StructureProvider } from '../index.js'
 import { BlockPos, Direction, Vector } from '../index.js'
+import type { BlockState } from '../core/BlockState.js'
+import { getFluidMesh } from './FluidRenderer.js'
+import type { FluidCell, FluidRenderContext, FluidState } from './FluidRenderer.js'
 import { Mesh } from './Mesh.js'
 import { RENDER_LAYERS, resolveRenderLayer } from './RenderLayer.js'
 import type { RenderLayer } from './RenderLayer.js'
@@ -68,16 +71,25 @@ export class ChunkBuilder {
 					south: this.needsCull(b, Direction.SOUTH),
 				}
 				const mesh = new Mesh()
-				if (blockDefinition) {
-					mesh.merge(blockDefinition.getMesh(blockName, blockProps, this.resources, this.resources, cull))
-				}
-				const specialMesh = SpecialRenderers.getBlockMesh(b.state, b.nbt, this.resources, cull)
-				if (!specialMesh.isEmpty()) {
-					mesh.merge(specialMesh)
+				const fluid = this.getFluidState(b.state)
+				if (fluid) {
+					mesh.merge(getFluidMesh(this.getFluidContext(b.pos, fluid), this.resources))
+				} else {
+					if (blockDefinition) {
+						mesh.merge(blockDefinition.getMesh(blockName, blockProps, this.resources, this.resources, cull))
+					}
+					const specialMesh = SpecialRenderers.getBlockMesh(b.state, b.nbt, this.resources, cull)
+					if (!specialMesh.isEmpty()) {
+						mesh.merge(specialMesh)
+					}
 				}
 				if (!mesh.isEmpty()) {	
 					this.finishChunkMesh(mesh, b.pos)
-					const layer = resolveRenderLayer(this.resources.getBlockFlags(b.state.getName()))
+					const layer = fluid?.type === 'water'
+						? 'translucent'
+						: fluid?.type === 'lava'
+							? 'emissive'
+							: resolveRenderLayer(this.resources.getBlockFlags(b.state.getName()))
 					chunk[layer].merge(mesh)
 				}
 			} catch (e) {
@@ -101,6 +113,29 @@ export class ChunkBuilder {
 		const chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
 		const layers = layer === undefined ? RENDER_LAYERS : [layer]
 		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))
+	}
+
+	private getFluidState(block: BlockState): FluidState | undefined {
+		if (!block.is('water') && !block.is('lava')) return undefined
+		const parsedLevel = Number.parseInt(block.getProperty('level') ?? '0', 10)
+		return {
+			type: block.is('water') ? 'water' : 'lava',
+			level: Number.isFinite(parsedLevel) ? Math.max(0, Math.min(15, parsedLevel)) : 0,
+		}
+	}
+
+	private getFluidContext(pos: vec3, fluid: FluidState): FluidRenderContext {
+		return {
+			fluid,
+			sample: (dx, dy, dz): FluidCell => {
+				const block = this.structure.getBlock([pos[0] + dx, pos[1] + dy, pos[2] + dz])
+				if (!block) return {}
+				return {
+					fluid: this.getFluidState(block.state),
+					solid: this.resources.getBlockFlags(block.state.getName())?.opaque ?? false,
+				}
+			},
+		}
 	}
 
 	private needsCull(block: PlacedBlock, dir: Direction) {
