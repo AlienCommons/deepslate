@@ -2,7 +2,7 @@ import { mat4, vec3 } from 'gl-matrix'
 import type { PlacedBlock, Resources, StructureProvider } from '../index.js'
 import { BlockPos, Direction, Vector } from '../index.js'
 import type { BlockState } from '../core/BlockState.js'
-import { getFluidMesh } from './FluidRenderer.js'
+import { getFluidMesh, getWaterloggedFluidVolumes } from './FluidRenderer.js'
 import type { FluidCell, FluidRenderContext, FluidState } from './FluidRenderer.js'
 import { Mesh } from './Mesh.js'
 import { RENDER_LAYERS, resolveRenderLayer } from './RenderLayer.js'
@@ -70,11 +70,12 @@ export class ChunkBuilder {
 					north: this.needsCull(b, Direction.NORTH),
 					south: this.needsCull(b, Direction.SOUTH),
 				}
-				const mesh = new Mesh()
 				const fluid = this.getFluidState(b.state)
 				if (fluid) {
-					mesh.merge(getFluidMesh(this.getFluidContext(b.pos, fluid), this.resources))
+					const mesh = getFluidMesh(this.getFluidContext(b.pos, fluid), this.resources)
+					this.addBlockMesh(chunk, mesh, b.pos, fluid.type === 'water' ? 'translucent' : 'emissive')
 				} else {
+					const mesh = new Mesh()
 					if (blockDefinition) {
 						mesh.merge(blockDefinition.getMesh(blockName, blockProps, this.resources, this.resources, cull))
 					}
@@ -82,15 +83,17 @@ export class ChunkBuilder {
 					if (!specialMesh.isEmpty()) {
 						mesh.merge(specialMesh)
 					}
-				}
-				if (!mesh.isEmpty()) {	
-					this.finishChunkMesh(mesh, b.pos)
-					const layer = fluid?.type === 'water'
-						? 'translucent'
-						: fluid?.type === 'lava'
-							? 'emissive'
-							: resolveRenderLayer(this.resources.getBlockFlags(b.state.getName()))
-					chunk[layer].merge(mesh)
+					this.addBlockMesh(chunk, mesh, b.pos, resolveRenderLayer(this.resources.getBlockFlags(b.state.getName())))
+
+					if (b.state.isWaterlogged()) {
+						const water: FluidState = { type: 'water', level: 0 }
+						const waterMesh = getFluidMesh(
+							this.getFluidContext(b.pos, water),
+							this.resources,
+							getWaterloggedFluidVolumes(b.state),
+						)
+						this.addBlockMesh(chunk, waterMesh, b.pos, 'translucent')
+					}
 				}
 			} catch (e) {
 				console.error(`Error rendering block ${blockName}`, e)
@@ -124,6 +127,10 @@ export class ChunkBuilder {
 		}
 	}
 
+	private getContainedFluidState(block: BlockState): FluidState | undefined {
+		return this.getFluidState(block) ?? (block.isWaterlogged() ? { type: 'water', level: 0 } : undefined)
+	}
+
 	private getFluidContext(pos: vec3, fluid: FluidState): FluidRenderContext {
 		return {
 			fluid,
@@ -131,11 +138,17 @@ export class ChunkBuilder {
 				const block = this.structure.getBlock([pos[0] + dx, pos[1] + dy, pos[2] + dz])
 				if (!block) return {}
 				return {
-					fluid: this.getFluidState(block.state),
+					fluid: this.getContainedFluidState(block.state),
 					solid: this.resources.getBlockFlags(block.state.getName())?.opaque ?? false,
 				}
 			},
 		}
+	}
+
+	private addBlockMesh(chunk: ChunkMeshes, mesh: Mesh, pos: vec3, layer: RenderLayer) {
+		if (mesh.isEmpty()) return
+		this.finishChunkMesh(mesh, pos)
+		chunk[layer].merge(mesh)
 	}
 
 	private needsCull(block: PlacedBlock, dir: Direction) {
@@ -148,10 +161,9 @@ export class ChunkBuilder {
 		}
 		
 		if (neighborFlags?.opaque) {
-			return !(dir === Direction.UP && block.state.isWaterlogged())
-		} else {
-			return block.state.isWaterlogged() && neighbor.isWaterlogged()
+			return true
 		}
+		return false
 	}
 
 	private finishChunkMesh(mesh: Mesh, pos: vec3) {

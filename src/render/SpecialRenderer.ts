@@ -1343,10 +1343,6 @@ export namespace SpecialRenderers {
 			mesh.merge(copperGolemRenderer(atlas, pose).transform(t))
 		}
 
-		if (!block.is('water') && !block.is('lava') && block.isWaterlogged()) {
-			mesh.merge(getLegacyFluidMesh('water', 0, atlas, cull, 0))
-		}
-
 		const t = mat4.create()
 		mat4.scale(t, t, [0.0625, 0.0625, 0.0625])
 		return mesh.transform(t)

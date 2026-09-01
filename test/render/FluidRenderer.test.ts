@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getFluidCornerHeights, getFluidFlow, getFluidMesh, getFluidOwnHeight } from '../../src/render/FluidRenderer.js'
+import { BlockState } from '../../src/core/BlockState.js'
+import { Cull } from '../../src/render/Cull.js'
+import { getFluidCornerHeights, getFluidFlow, getFluidMesh, getFluidOwnHeight, getWaterloggedFluidVolumes } from '../../src/render/FluidRenderer.js'
 import type { FluidCell, FluidRenderContext, FluidState } from '../../src/render/FluidRenderer.js'
+import { SpecialRenderers } from '../../src/render/SpecialRenderer.js'
 import type { TextureAtlasProvider } from '../../src/render/TextureAtlas.js'
 
 const atlas: TextureAtlasProvider = {
@@ -72,5 +75,62 @@ describe('fluid surface geometry', () => {
 		}), atlas).quads[0]
 		expect(levelTop.v1.textureLimit).toEqual([0, 0, 0.5, 0.5])
 		expect(flowingTop.v1.textureLimit).toEqual([0.5, 0.5, 1, 1])
+	})
+})
+
+describe('waterlogged fluid volumes', () => {
+	it('does not merge water into the solid block mesh', () => {
+		const mesh = SpecialRenderers.getBlockMesh(
+			new BlockState('oak_slab', { type: 'bottom', waterlogged: 'true' }),
+			undefined,
+			atlas,
+			Cull.none(),
+		)
+		expect(mesh.isEmpty()).toBe(true)
+	})
+
+	it('keeps water above bottom slabs and below top slabs', () => {
+		expect(getWaterloggedFluidVolumes(new BlockState('oak_slab', { type: 'bottom', waterlogged: 'true' }))).toEqual([{
+			minX: 0, minY: 0.5, minZ: 0,
+			maxX: 1, maxY: 1, maxZ: 1,
+		}])
+		expect(getWaterloggedFluidVolumes(new BlockState('oak_slab', { type: 'top', waterlogged: 'true' }))).toEqual([{
+			minX: 0, minY: 0, minZ: 0,
+			maxX: 1, maxY: 0.5, maxZ: 1,
+			topVisible: false,
+		}])
+	})
+
+	it('clips closed and open trapdoors away from their solid panel', () => {
+		expect(getWaterloggedFluidVolumes(new BlockState('oak_trapdoor', {
+			half: 'bottom', open: 'false', waterlogged: 'true',
+		}))[0].minY).toBe(3 / 16)
+		expect(getWaterloggedFluidVolumes(new BlockState('oak_trapdoor', {
+			facing: 'north', open: 'true', waterlogged: 'true',
+		}))[0].maxZ).toBe(13 / 16)
+	})
+
+	it('uses two quarter-cell volumes for a straight stair', () => {
+		const volumes = getWaterloggedFluidVolumes(new BlockState('oak_stairs', {
+			facing: 'north', half: 'bottom', shape: 'straight', waterlogged: 'true',
+		}))
+		expect(volumes).toHaveLength(2)
+		expect(volumes.every(volume => volume.minY === 0.5 && volume.minZ === 0.5)).toBe(true)
+	})
+
+	it('matches inner and outer stair occupancy', () => {
+		const state = (shape: string) => new BlockState('oak_stairs', {
+			facing: 'north', half: 'bottom', shape, waterlogged: 'true',
+		})
+		expect(getWaterloggedFluidVolumes(state('inner_left'))).toHaveLength(1)
+		expect(getWaterloggedFluidVolumes(state('outer_left'))).toHaveLength(3)
+	})
+
+	it('does not emit a coplanar surface beneath top slabs', () => {
+		const fluid: FluidState = { type: 'water', level: 0 }
+		const volumes = getWaterloggedFluidVolumes(new BlockState('oak_slab', { type: 'top', waterlogged: 'true' }))
+		const mesh = getFluidMesh(context(fluid), atlas, volumes)
+		const horizontalFacesAtSlab = mesh.quads.filter(quad => quad.vertices().every(vertex => vertex.pos.y === 0.5))
+		expect(horizontalFacesAtSlab).toHaveLength(0)
 	})
 })
