@@ -54,25 +54,28 @@
     "test": "vitest -r ./test",
     "demo": "vite ./demo",
     "benchmark": "esno benchmarks/index.ts",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint .",
     "version": "bash scripts/version.sh",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "gl-matrix": "^3.3.0",
+    "gl-matrix": "^3.4.4",
     "md5": "^2.3.0",
-    "pako": "^2.0.3"
+    "pako": "^3.0.1"
   },
   "devDependencies": {
-    "@types/md5": "^2.3.1",
-    "@types/pako": "^1.0.1",
-    "@typescript-eslint/eslint-plugin": "^5.42.1",
-    "@typescript-eslint/parser": "^5.42.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/md5": "^2.3.6",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
     "benny": "^3.7.1",
-    "eslint": "^8.27.0",
-    "esno": "^0.16.3",
-    "typescript": "^4.8.4",
-    "vite": "^3.2.3",
-    "vitest": "^0.25.1"
+    "eslint": "^10.9.1",
+    "esno": "^4.8.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
   }
 }

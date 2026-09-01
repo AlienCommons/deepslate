@@ -120,8 +120,8 @@ export class Renderer {
 	}
 
 	protected prepareDraw(viewMatrix: mat4) {
-		this.setUniform('mView', viewMatrix)
-		this.setUniform('mProj', this.projMatrix)
+		this.setUniform('mView', viewMatrix as Float32List)
+		this.setUniform('mProj', this.projMatrix as Float32List)
 		const location = this.gl.getUniformLocation(this.activeShader, 'pixelSize')    
 		this.gl.uniform1f(location, this.pixelSize)
 	}

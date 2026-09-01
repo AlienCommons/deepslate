@@ -1,4 +1,4 @@
-import Pako from 'pako'
+import * as Pako from 'pako'
 import type { JsonValue } from '../util/index.js'
 import { Json } from '../util/index.js'
 import { getBedrockHeader, hasGzipHeader, hasZlibHeader } from './Util.js'

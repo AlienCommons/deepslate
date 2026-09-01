@@ -1,4 +1,4 @@
-import Pako from 'pako'
+import * as Pako from 'pako'
 import { describe, expect, it } from 'vitest'
 import { NbtChunk, NbtFile, NbtRegion, NbtShort, NbtString } from '../../src/nbt'
 

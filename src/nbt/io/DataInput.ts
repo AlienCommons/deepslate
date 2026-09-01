@@ -24,7 +24,7 @@ export class RawDataInput implements DataInput {
 	constructor (input: Uint8Array | ArrayLike<number> | ArrayBufferLike, options?: RawDataInputOptions) {
 		this.littleEndian = options?.littleEndian ?? false
 		this.offset = options?.offset ?? 0
-		this.array = input instanceof Uint8Array ? input : new Uint8Array(input)
+		this.array = input instanceof Uint8Array ? input : new Uint8Array(input as ArrayBuffer | ArrayLike<number>)
 		this.view = new DataView(this.array.buffer, this.array.byteOffset)
 	}
 
