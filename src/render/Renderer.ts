@@ -1,5 +1,6 @@
 import { mat4 } from 'gl-matrix'
 import type { Mesh } from './Mesh.js'
+import { getRenderLayerState } from './RenderLayer.js'
 import type { RenderLayer } from './RenderLayer.js'
 import { ShaderProgram } from './ShaderProgram.js'
 import { getTextureAnimationFrame } from './TextureAtlas.js'
@@ -155,16 +156,16 @@ export class Renderer {
 	}
 
 	protected prepareRenderLayer(layer: RenderLayer) {
-		const translucent = layer === 'translucent'
-		if (translucent) {
+		const state = getRenderLayerState(layer)
+		if (state.blend) {
 			this.gl.enable(this.gl.BLEND)
 		} else {
 			this.gl.disable(this.gl.BLEND)
 		}
-		this.gl.depthMask(!translucent)
+		this.gl.depthMask(state.depthWrite)
 
 		const location = this.gl.getUniformLocation(this.activeShader, 'emissive')
-		this.gl.uniform1f(location, layer === 'emissive' ? 1 : 0)
+		this.gl.uniform1f(location, state.emissive ? 1 : 0)
 	}
 
 	protected finishRenderLayers() {

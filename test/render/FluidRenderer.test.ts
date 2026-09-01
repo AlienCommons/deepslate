@@ -76,6 +76,29 @@ describe('fluid surface geometry', () => {
 		expect(levelTop.v1.textureLimit).toEqual([0, 0, 0.5, 0.5])
 		expect(flowingTop.v1.textureLimit).toEqual([0.5, 0.5, 1, 1])
 	})
+
+	it('emits only the outside faces of a solid fluid section', () => {
+		const size = 8
+		const fluid: FluidState = { type: 'water', level: 0 }
+		let quads = 0
+		for (let x = 0; x < size; x += 1) {
+			for (let y = 0; y < size; y += 1) {
+				for (let z = 0; z < size; z += 1) {
+					const renderContext: FluidRenderContext = {
+						fluid,
+						sample: (dx, dy, dz) => {
+							const inside = x + dx >= 0 && x + dx < size
+								&& y + dy >= 0 && y + dy < size
+								&& z + dz >= 0 && z + dz < size
+							return inside ? { fluid } : {}
+						},
+					}
+					quads += getFluidMesh(renderContext, atlas).quads.length
+				}
+			}
+		}
+		expect(quads).toBe(6 * size * size)
+	})
 })
 
 describe('waterlogged fluid volumes', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RENDER_LAYERS, resolveRenderLayer } from '../../src/render/RenderLayer.js'
+import { getRenderLayerState, RENDER_LAYERS, resolveRenderLayer } from '../../src/render/RenderLayer.js'
 
 describe('render layers', () => {
 	it('draws solid layers before translucent geometry', () => {
@@ -20,5 +20,12 @@ describe('render layers', () => {
 	it('keeps semi_transparent flags backward compatible', () => {
 		expect(resolveRenderLayer({ semi_transparent: true })).toBe('translucent')
 		expect(resolveRenderLayer({ render_layer: 'cutout', semi_transparent: true })).toBe('cutout')
+	})
+
+	it('only blends translucent geometry and prevents it from writing depth', () => {
+		expect(getRenderLayerState('opaque')).toEqual({ blend: false, depthWrite: true, emissive: false })
+		expect(getRenderLayerState('cutout')).toEqual({ blend: false, depthWrite: true, emissive: false })
+		expect(getRenderLayerState('translucent')).toEqual({ blend: true, depthWrite: false, emissive: false })
+		expect(getRenderLayerState('emissive')).toEqual({ blend: false, depthWrite: true, emissive: true })
 	})
 })
