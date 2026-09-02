@@ -89,7 +89,9 @@ export class EntityModel {
 			if (stack.has(name)) throw new Error(`Entity model contains a bone cycle at ${name}`)
 			stack.add(name)
 			const bone = this.geometry.bones[name]
-			const matrix = bone.parent ? mat4.clone(getTransform(bone.parent, stack)) : mat4.create()
+			const matrix = bone.parent && this.geometry.bones[bone.parent]
+				? mat4.clone(getTransform(bone.parent, stack))
+				: mat4.create()
 			mat4.translate(matrix, matrix, bone.pivot ?? [0, 0, 0])
 			rotation(matrix, bone.rotation ?? [0, 0, 0])
 			stack.delete(name)
