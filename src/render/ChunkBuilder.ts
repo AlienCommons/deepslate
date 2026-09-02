@@ -60,7 +60,7 @@ export class ChunkBuilder {
 			})
 		}
 
-		for (const b of this.structure.getBlocks()) {
+		for (const b of this.getBlocks(chunkPositions)) {
 			const blockName = b.state.getName()
 			const blockProps = {
 				...this.resources.getDefaultBlockProperties(blockName),
@@ -221,6 +221,27 @@ export class ChunkBuilder {
 
 	private createLightEngine() {
 		return new LightEngine(this.structure, state => this.resources.getBlockFlags(state.getName()))
+	}
+
+	private getBlocks(chunkPositions?: vec3[]) {
+		if (!chunkPositions) return this.structure.getBlocks()
+		const key = (pos: vec3) => `${pos[0]},${pos[1]},${pos[2]}`
+		const uniqueChunks = new Map(chunkPositions.map(pos => [key(pos), pos]))
+		if (this.structure.getBlocksInBox) {
+			return [...uniqueChunks.values()].flatMap(chunkPos => {
+				const min: BlockPos = [
+					chunkPos[0] * this.chunkSize[0],
+					chunkPos[1] * this.chunkSize[1],
+					chunkPos[2] * this.chunkSize[2],
+				]
+				const max = min.map((value, axis) => value + this.chunkSize[axis]) as BlockPos
+				return this.structure.getBlocksInBox!(min, max)
+			})
+		}
+		return this.structure.getBlocks().filter(block => {
+			const chunkPos = block.pos.map((value, axis) => Math.floor(value / this.chunkSize[axis]))
+			return uniqueChunks.has(key(chunkPos))
+		})
 	}
 
 	private getChunk(chunkPos: vec3): ChunkMeshes {

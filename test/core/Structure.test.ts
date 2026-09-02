@@ -51,6 +51,15 @@ describe('Structure', () => {
 		expect(blockNames).toEqual([Identifier.create('stone'), Identifier.create('stone'), Identifier.create('jigsaw')])
 	})
 
+	it('gets blocks from a bounded region without scanning the full structure', () => {
+		const structure = new Structure([32, 2, 32])
+			.addBlock([1, 0, 1], 'stone')
+			.addBlock([17, 0, 17], 'jigsaw')
+
+		expect(structure.getBlocksInBox([0, 0, 0], [16, 2, 16]).map(block => block.pos)).toEqual([[1, 0, 1]])
+		expect(structure.getBlocksInBox([16, 0, 16], [32, 2, 32]).map(block => block.pos)).toEqual([[17, 0, 17]])
+	})
+
 	it('fromNbt (empty)', () => {
 		const nbt = new NbtCompound()
 			.set('size', new NbtList([new NbtInt(0), new NbtInt(0), new NbtInt(0)]))

@@ -57,6 +57,21 @@ export class Structure implements StructureProvider {
 		return this.blocks.map(b => this.toPlacedBlock(b))
 	}
 
+	public getBlocksInBox(min: BlockPos, max: BlockPos): PlacedBlock[] {
+		const start = min.map(value => Math.max(0, Math.floor(value))) as BlockPos
+		const end = max.map((value, axis) => Math.min(this.size[axis], Math.ceil(value))) as BlockPos
+		const result: PlacedBlock[] = []
+		for (let x = start[0]; x < end[0]; x += 1) {
+			for (let y = start[1]; y < end[1]; y += 1) {
+				for (let z = start[2]; z < end[2]; z += 1) {
+					const block = this.blocksMap[x * this.size[1] * this.size[2] + y * this.size[2] + z]
+					if (block) result.push(this.toPlacedBlock(block))
+				}
+			}
+		}
+		return result
+	}
+
 	public getBlock(pos: BlockPos): PlacedBlock | null {
 		if (!this.isInside(pos)) return null
 		const block = this.blocksMap[pos[0] * this.size[1] * this.size[2] + pos[1] * this.size[2] + pos[2]]
