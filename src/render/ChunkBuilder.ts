@@ -28,13 +28,13 @@ export class ChunkBuilder {
 	) {
 		this.chunkSize = typeof chunkSize === 'number' ? [chunkSize, chunkSize, chunkSize] : chunkSize
 		this.lightEngine = this.createLightEngine()
-		this.updateStructureBuffers()
+		this.updateStructureBuffers(undefined, false)
 	}
 
 	public setStructure(structure: StructureProvider) {
 		this.structure = structure
 		this.lightEngine = this.createLightEngine()
-		this.updateStructureBuffers()
+		this.updateStructureBuffers(undefined, false)
 	}
 
 	public dispose() {
@@ -44,10 +44,10 @@ export class ChunkBuilder {
 		this.chunks = []
 	}
 
-	public updateStructureBuffers(chunkPositions?: vec3[]): void {
+	public updateStructureBuffers(chunkPositions?: vec3[], rebuildLighting = true): void {
 		if (!this.structure)
 			return
-		this.lightEngine.rebuild()
+		if (rebuildLighting) this.lightEngine.rebuild()
 		
 		if (!chunkPositions) {
 			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
