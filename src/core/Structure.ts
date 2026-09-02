@@ -1,11 +1,12 @@
 import type { NbtCompound } from '../nbt/index.js'
-import { NbtType } from '../nbt/index.js'
+import { NbtFile, NbtType } from '../nbt/index.js'
 import { BlockPos } from './BlockPos.js'
 import { BlockState } from './BlockState.js'
 import type { Identifier } from './Identifier.js'
 import { Registry } from './Registry.js'
 import { Rotation } from './Rotation.js'
 import type { StructureProvider } from './StructureProvider.js'
+import { decodeLitematic } from './Litematic.js'
 
 type StoredBlock = { pos: BlockPos, state: number, nbt?: NbtCompound }
 export type PlacedBlock = { pos: BlockPos, state: BlockState, nbt?: NbtCompound }
@@ -20,7 +21,7 @@ export class Structure implements StructureProvider {
 	constructor(
 		private readonly size: BlockPos,
 		private readonly palette: BlockState[] = [],
-		private readonly blocks: StoredBlock[] = []
+		private readonly blocks: StoredBlock[] = [],
 	) {
 		blocks.forEach(block => {
 			if (!this.isInside(block.pos)) {
@@ -88,6 +89,20 @@ export class Structure implements StructureProvider {
 			return { pos, state, nbt: nbt.size > 0 ? nbt : undefined }
 		})
 		return new Structure(size, palette, blocks)
+	}
+
+	/** Reads a gzip-compressed .litematic file or its decoded root NBT compound. */
+	public static fromLitematic(data: Uint8Array | NbtCompound) {
+		const root = data instanceof Uint8Array ? NbtFile.read(data).root : data
+		const decoded = decodeLitematic(root)
+		const structure = new Structure(decoded.size)
+		decoded.blocks.forEach(block => structure.addBlock(
+			block.pos,
+			block.state.getName(),
+			block.state.getProperties(),
+			block.nbt,
+		))
+		return structure
 	}
 
 	public static transform(pos: BlockPos, rotation: Rotation, pivot: BlockPos) {
