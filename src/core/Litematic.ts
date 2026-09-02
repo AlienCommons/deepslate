@@ -9,9 +9,17 @@ export interface LitematicBlock {
 	nbt?: NbtCompound
 }
 
+export interface LitematicEntity {
+	pos: [number, number, number]
+	id: string
+	nbt: NbtCompound
+	rotation?: [number, number]
+}
+
 export interface DecodedLitematic {
 	size: BlockPos
 	blocks: LitematicBlock[]
+	entities: LitematicEntity[]
 }
 
 interface Region {
@@ -22,6 +30,7 @@ interface Region {
 	palette: BlockState[]
 	states: NbtLongArray
 	blockEntities: Map<string, NbtCompound>
+	entities: Array<{ pos: [number, number, number], id: string, nbt: NbtCompound, rotation?: [number, number] }>
 }
 
 function readVector(compound: NbtCompound, key: string, regionName: string): BlockPos {
@@ -61,6 +70,22 @@ function readBlockEntities(region: NbtCompound, version: number) {
 	return entities
 }
 
+function readEntities(region: NbtCompound, version: number) {
+	return region.getList('Entities', NbtType.Compound).map(wrapper => {
+		const nbt = version === 1 && wrapper.hasCompound('EntityData') ? wrapper.getCompound('EntityData') : wrapper
+		const posSource = version === 1 ? wrapper : nbt
+		const posTag = posSource.get('Pos')
+		const id = nbt.getString('id')
+		if (!id || !posTag?.isList() || posTag.length < 3) return undefined
+		const pos = posTag.getAsTuple(3, value => value?.getAsNumber() ?? 0)
+		const rotationTag = nbt.get('Rotation')
+		const rotation = rotationTag?.isList() && rotationTag.length >= 2
+			? rotationTag.getAsTuple(2, value => value?.getAsNumber() ?? 0)
+			: undefined
+		return { pos, id, nbt, rotation }
+	}).filter(entity => entity !== undefined)
+}
+
 function readRegion(name: string, tag: NbtCompound, version: number): Region {
 	const position = readVector(tag, 'Position', name)
 	const size = readVector(tag, 'Size', name)
@@ -94,6 +119,7 @@ function readRegion(name: string, tag: NbtCompound, version: number): Region {
 		palette,
 		states: statesTag,
 		blockEntities: readBlockEntities(tag, version),
+		entities: readEntities(tag, version),
 	}
 }
 
@@ -141,6 +167,7 @@ export function decodeLitematic(root: NbtCompound): DecodedLitematic {
 	})
 
 	const blocks = new Map<string, LitematicBlock>()
+	const entities: LitematicEntity[] = []
 	regions.forEach(region => {
 		const [sizeX, sizeY, sizeZ] = region.absSize
 		for (let y = 0; y < sizeY; y += 1) {
@@ -164,10 +191,17 @@ export function decodeLitematic(root: NbtCompound): DecodedLitematic {
 				}
 			}
 		}
+		region.entities.forEach(entity => {
+			entities.push({
+				...entity,
+				pos: entity.pos.map((value, axis) => region.position[axis] + value - min[axis]) as [number, number, number],
+			})
+		})
 	})
 
 	return {
 		size: max.map((value, axis) => value - min[axis] + 1) as BlockPos,
 		blocks: [...blocks.values()],
+		entities,
 	}
 }

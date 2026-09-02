@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Structure } from '../../src/core/index.js'
-import { NbtCompound, NbtFile, NbtInt, NbtList, NbtLongArray, NbtString } from '../../src/nbt/index.js'
+import { NbtCompound, NbtDouble, NbtFile, NbtFloat, NbtInt, NbtList, NbtLongArray, NbtString } from '../../src/nbt/index.js'
 
 const vector = (x: number, y: number, z: number) => new NbtCompound()
 	.set('x', new NbtInt(x))
@@ -106,6 +106,27 @@ describe('Structure.fromLitematic', () => {
 		) }))
 
 		expect(structure.getBlock([0, 0, 0])?.nbt?.getString('id')).toBe('minecraft:chest')
+	})
+
+	it('loads and normalizes entities with rotation and NBT', () => {
+		const main = region(
+			[10, 2, -4], [2, 2, 2], [state('minecraft:air'), state('minecraft:stone')], Array(8).fill(0),
+		)
+		main.set('Entities', new NbtList([
+			new NbtCompound()
+				.set('id', new NbtString('minecraft:oak_boat'))
+				.set('Pos', new NbtList([new NbtDouble(0.5), new NbtDouble(1), new NbtDouble(1.5)]))
+				.set('Rotation', new NbtList([new NbtFloat(90), new NbtFloat(0)]))
+				.set('CustomName', new NbtString('Machine boat')),
+		]))
+		const structure = Structure.fromLitematic(litematic({ Main: main }))
+		const entities = structure.getEntities()
+
+		expect(entities).toHaveLength(1)
+		expect(entities[0].id.toString()).toBe('minecraft:oak_boat')
+		expect(entities[0].pos).toEqual([0.5, 1, 1.5])
+		expect(entities[0].rotation).toEqual([90, 0])
+		expect(entities[0].nbt.getString('CustomName')).toBe('Machine boat')
 	})
 
 	it('reads gzip-compressed .litematic bytes', () => {

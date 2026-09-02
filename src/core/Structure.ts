@@ -119,6 +119,7 @@ export class Structure implements StructureProvider {
 			block.state.getProperties(),
 			block.nbt,
 		))
+		decoded.entities.forEach(entity => structure.addEntity(entity.pos, entity.id, entity.nbt, entity.rotation))
 		return structure
 	}
 
