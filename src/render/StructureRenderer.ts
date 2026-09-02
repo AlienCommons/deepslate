@@ -13,6 +13,8 @@ import { Renderer } from './Renderer.js'
 import { ShaderProgram } from './ShaderProgram.js'
 import type { TextureAtlasProvider } from './TextureAtlas.js'
 import type { TextureAnimation } from './TextureAtlas.js'
+import type { EntityModelProvider } from './EntityModel.js'
+import { EntityMeshBuilder } from './EntityMeshBuilder.js'
 
 const vsColor = `
   attribute vec4 vertPos;
@@ -83,7 +85,7 @@ export interface BlockPropertiesProvider {
 	getDefaultBlockProperties(id: Identifier): Record<string, string> | null
 }
 
-export interface Resources extends BlockDefinitionProvider, BlockModelProvider, TextureAtlasProvider, BlockFlagsProvider, BlockPropertiesProvider {}
+export interface Resources extends BlockDefinitionProvider, BlockModelProvider, TextureAtlasProvider, BlockFlagsProvider, BlockPropertiesProvider, Partial<EntityModelProvider> {}
 
 interface StructureRendererOptions {
 	facesPerBuffer?: number,
@@ -103,6 +105,8 @@ export class StructureRenderer extends Renderer {
 	public useInvisibleBlocks: boolean
 
 	private readonly chunkBuilder: ChunkBuilder
+	private readonly entityMeshBuilder: EntityMeshBuilder
+	private renderEntities = true
 
 	constructor(
 		gl: WebGLRenderingContext,
@@ -115,6 +119,7 @@ export class StructureRenderer extends Renderer {
 		const chunkSize = options?.chunkSize ?? 16
 
 		this.chunkBuilder = new ChunkBuilder(gl, structure, resources, chunkSize)
+		this.entityMeshBuilder = new EntityMeshBuilder(gl, structure, resources)
 
 		if (options?.facesPerBuffer){
 			console.warn('[deepslate renderer warning]: facesPerBuffer option has been removed in favor of chunkSize')
@@ -134,8 +139,17 @@ export class StructureRenderer extends Renderer {
 	public setStructure(structure: StructureProvider) {
 		this.structure = structure
 		this.chunkBuilder.setStructure(structure)
+		this.entityMeshBuilder.setStructure(structure)
 		this.gridMesh = this.getGridMesh()
 		this.invisibleBlocksMesh = this.getInvisibleBlocksMesh()
+	}
+
+	public setEntityRenderingEnabled(enabled: boolean) {
+		this.renderEntities = enabled
+	}
+
+	public isEntityRenderingEnabled() {
+		return this.renderEntities
 	}
 
 	public updateStructureBuffers(chunkPositions?: vec3[]): void {
@@ -225,6 +239,14 @@ export class StructureRenderer extends Renderer {
 		this.prepareDraw(viewMatrix)
 
 		RENDER_LAYERS.forEach(layer => {
+			if (layer === 'translucent' && this.renderEntities) {
+				this.prepareRenderLayer('cutout')
+				this.gl.disable(this.gl.CULL_FACE)
+				this.entityMeshBuilder.getMeshes().forEach(mesh => {
+					this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
+				})
+				this.gl.enable(this.gl.CULL_FACE)
+			}
 			this.prepareRenderLayer(layer)
 			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
 				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })

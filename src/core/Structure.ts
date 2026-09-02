@@ -3,6 +3,7 @@ import { NbtFile, NbtType } from '../nbt/index.js'
 import { BlockPos } from './BlockPos.js'
 import { BlockState } from './BlockState.js'
 import type { Identifier } from './Identifier.js'
+import { Identifier as IdentifierValue } from './Identifier.js'
 import { Registry } from './Registry.js'
 import { Rotation } from './Rotation.js'
 import type { StructureProvider } from './StructureProvider.js'
@@ -10,6 +11,7 @@ import { decodeLitematic } from './Litematic.js'
 
 type StoredBlock = { pos: BlockPos, state: number, nbt?: NbtCompound }
 export type PlacedBlock = { pos: BlockPos, state: BlockState, nbt?: NbtCompound }
+export type PlacedEntity = { pos: [number, number, number], id: Identifier, nbt: NbtCompound, rotation?: [number, number] }
 
 export class Structure implements StructureProvider {
 	public static readonly REGISTRY = Registry.createAndRegister<Structure>('structures')
@@ -22,6 +24,7 @@ export class Structure implements StructureProvider {
 		private readonly size: BlockPos,
 		private readonly palette: BlockState[] = [],
 		private readonly blocks: StoredBlock[] = [],
+		private readonly entities: PlacedEntity[] = [],
 	) {
 		blocks.forEach(block => {
 			if (!this.isInside(block.pos)) {
@@ -59,6 +62,20 @@ export class Structure implements StructureProvider {
 		const block = this.blocksMap[pos[0] * this.size[1] * this.size[2] + pos[1] * this.size[2] + pos[2]]
 		if (!block) return null
 		return this.toPlacedBlock(block)
+	}
+
+	public addEntity(pos: [number, number, number], id: Identifier | string, nbt: NbtCompound, rotation?: [number, number]) {
+		this.entities.push({
+			pos,
+			id: typeof id === 'string' ? IdentifierValue.parse(id) : id,
+			nbt,
+			rotation,
+		})
+		return this
+	}
+
+	public getEntities() {
+		return this.entities.slice()
 	}
 
 	private toPlacedBlock(block: StoredBlock): PlacedBlock {
