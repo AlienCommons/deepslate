@@ -12,6 +12,21 @@ Rendering behavior targets Minecraft Java Edition 26.2. See [Rendering validatio
 
 For the original stable package, see [misode/deepslate](https://github.com/misode/deepslate).
 
+## Litematic files
+
+Deepslate can read gzip-compressed `.litematic` files directly into a renderable `Structure`:
+
+```ts
+import { Structure } from 'deepslate'
+
+const bytes = new Uint8Array(await file.arrayBuffer())
+const structure = Structure.fromLitematic(bytes)
+```
+
+The loader supports multiple regions, regions that extend along negative axes, tightly packed block-state palettes, and block entity NBT. The resulting structure is normalized to start at `[0, 0, 0]`. Entity rendering and scheduled block ticks are not currently included.
+
+The demo includes an **Open .litematic** picker for testing local files entirely in the browser.
+
 ## Goals
 
 - Render Minecraft structures and schematic projections directly in the browser.

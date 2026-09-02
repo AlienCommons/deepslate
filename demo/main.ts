@@ -38,6 +38,12 @@ class SpectatorControls {
 		requestAnimationFrame(time => this.frame(time))
 	}
 
+	public reset(position: [number, number, number]) {
+		this.position.splice(0, 3, ...position)
+		this.yaw = 0
+		this.pitch = 0.12
+	}
+
 	private frame(time: number) {
 		const delta = Math.min((time - this.lastFrame) / 1000, 0.05)
 		this.lastFrame = time
@@ -114,6 +120,11 @@ function createValidationStructure() {
 	structure.addBlock([16, 1, 15], 'minecraft:redstone_block')
 	structure.addBlock([17, 1, 15], 'minecraft:observer', { facing: 'north', powered: 'false' })
 	return structure
+}
+
+function getPreviewPosition(structure: Structure): [number, number, number] {
+	const [x, y, z] = structure.getSize()
+	return [x / 2, Math.max(2, y / 2), z + Math.max(8, Math.max(x, y, z) * 0.9)]
 }
 
 function getAnimations(atlas: CanvasRenderingContext2D, uvMap: Record<string, [number, number, number, number]>): TextureAnimation[] {
@@ -212,11 +223,34 @@ Promise.all([
 	}
 	new ResizeObserver(resize).observe(canvas)
 	resize()
-	new SpectatorControls(canvas, (view, elapsedMs) => {
+	const controls = new SpectatorControls(canvas, (view, elapsedMs) => {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		renderer.drawStructure(view, elapsedMs)
 	}, [10, 5, 25])
+
+	const fileInput = document.getElementById('litematic-file') as HTMLInputElement
+	const fileStatus = document.getElementById('file-status')!
+	fileInput.disabled = false
+	fileStatus.textContent = 'Using the built-in rendering validation scene.'
+	fileInput.addEventListener('change', async () => {
+		const file = fileInput.files?.[0]
+		if (!file) return
+		fileStatus.textContent = `Opening ${file.name}…`
+		try {
+			const structure = Structure.fromLitematic(new Uint8Array(await file.arrayBuffer()))
+			renderer.setStructure(structure)
+			controls.reset(getPreviewPosition(structure))
+			const [x, y, z] = structure.getSize()
+			fileStatus.textContent = `${file.name} · ${x} × ${y} × ${z} · ${structure.getBlocks().length.toLocaleString()} blocks`
+		} catch (error) {
+			console.error(error)
+			fileStatus.textContent = error instanceof Error ? error.message : `Could not open ${file.name}.`
+		} finally {
+			fileInput.value = ''
+		}
+	})
 }).catch(error => {
 	console.error(error)
 	document.getElementById('status')!.textContent = `Failed to load Minecraft ${MINECRAFT_VERSION} resources.`
+	document.getElementById('file-status')!.textContent = 'The file picker is unavailable until resources load.'
 })
