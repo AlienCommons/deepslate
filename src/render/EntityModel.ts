@@ -181,5 +181,7 @@ export function transformEntityMesh(mesh: Mesh, entity: PlacedEntity) {
 	mat4.translate(transform, transform, entity.pos)
 	const yaw = entity.rotation?.[0] ?? 0
 	mat4.rotateY(transform, transform, -yaw * Math.PI / 180)
-	return mesh.transform(transform)
+	mesh.transform(transform)
+	mesh.computeNormals()
+	return mesh
 }

@@ -23,9 +23,20 @@ const bytes = new Uint8Array(await file.arrayBuffer())
 const structure = Structure.fromLitematic(bytes)
 ```
 
-The loader supports multiple regions, regions that extend along negative axes, tightly packed block-state palettes, and block entity NBT. The resulting structure is normalized to start at `[0, 0, 0]`. Entity rendering and scheduled block ticks are not currently included.
+The loader supports multiple regions, regions that extend along negative axes, tightly packed block-state palettes, block entity NBT, and static entities. The resulting structure is normalized to start at `[0, 0, 0]`. Scheduled block ticks are not currently included.
 
-The demo includes an **Open .litematic** picker for testing local files entirely in the browser.
+The demo includes an **Open .litematic** picker and an **Entities** switch for testing local files entirely in the browser.
+
+## Static entities
+
+`Structure` can store entities with floating-point positions, rotation, and NBT. `StructureRenderer` draws them when its resources provide `getEntityModel`, and entity drawing can be changed at runtime:
+
+```ts
+renderer.setEntityRenderingEnabled(false)
+renderer.setEntityRenderingEnabled(true)
+```
+
+The renderer accepts data-driven bone and cuboid models, so applications can register vanilla or modded entities without changing the WebGL pipeline. The demo includes static model forms for vanilla living entities, dedicated boat and minecart geometry, and a textured fallback for every other entity ID. Animations, equipment, passengers, nameplates, fire overlays, and other dynamic gameplay layers are intentionally outside the current static-preview scope.
 
 ## Goals
 

@@ -15,6 +15,8 @@
 		.file-picker { display: inline-block; margin-top: 8px; padding: 5px 9px; border: 1px solid #ffffff35; border-radius: 4px; background: #ffffff12; color: #e6edf3; cursor: pointer; pointer-events: auto; }
 		.file-picker:hover { background: #ffffff20; }
 		.file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+		.entity-toggle { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 0 8px; color: #e6edf3; pointer-events: auto; cursor: pointer; }
+		.entity-toggle input { margin: 0; }
 		.is-playing .hint { display: none; }
 		.crosshair { display: none; position: fixed; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%, -50%); pointer-events: none; }
 		.crosshair::before, .crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 1px #000; }
@@ -32,6 +34,10 @@
 		<label class="file-picker">
 			Open .litematic
 			<input id="litematic-file" type="file" accept=".litematic,application/octet-stream" disabled>
+		</label>
+		<label class="entity-toggle">
+			<input id="render-entities" type="checkbox" checked disabled>
+			Entities
 		</label>
 		<small id="file-status">Loading Minecraft resources…</small>
 	</div>

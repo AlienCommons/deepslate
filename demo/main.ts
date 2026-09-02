@@ -1,6 +1,6 @@
 import { mat4 } from 'gl-matrix'
 import type { Resources, TextureAnimation, TextureAnimationMetadata } from '../src/index.js'
-import { BlockDefinition, BlockModel, getTextureAnimationTimeline, Identifier, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
+import { BlockDefinition, BlockModel, EntityModelRegistry, getTextureAnimationTimeline, Identifier, NbtCompound, NbtString, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
 import { getSpectatorLook, getSpectatorMovement } from './SpectatorMovement.js'
 
 const MINECRAFT_VERSION = '26.2'
@@ -119,6 +119,8 @@ function createValidationStructure() {
 	structure.addBlock([15, 1, 15], 'minecraft:iron_block')
 	structure.addBlock([16, 1, 15], 'minecraft:redstone_block')
 	structure.addBlock([17, 1, 15], 'minecraft:observer', { facing: 'north', powered: 'false' })
+	structure.addEntity([9.5, 1, 4.5], 'minecraft:armor_stand', new NbtCompound().set('id', new NbtString('minecraft:armor_stand')), [25, 0])
+	structure.addEntity([5, 1, 15], 'minecraft:oak_boat', new NbtCompound().set('id', new NbtString('minecraft:oak_boat')), [-20, 0])
 	return structure
 }
 
@@ -158,6 +160,7 @@ Promise.all([
 	fetch(resourceUrl('summary', 'assets/block_definition/data.min.json')).then(response => response.json()),
 	fetch(resourceUrl('summary', 'assets/model/data.min.json')).then(response => response.json()),
 	fetch(resourceUrl('atlas', 'all/data.min.json')).then(response => response.json()),
+	fetch(new URL('./entity-models.json', import.meta.url)).then(response => response.json()),
 	new Promise<HTMLImageElement>((resolve, reject) => {
 		const image = new Image()
 		image.onload = () => resolve(image)
@@ -165,7 +168,7 @@ Promise.all([
 		image.crossOrigin = 'anonymous'
 		image.src = resourceUrl('atlas', 'all/atlas.png')
 	}),
-]).then(([blockstates, models, uvMap, atlasImage]) => {
+]).then(([blockstates, models, uvMap, entityModelData, atlasImage]) => {
 	const blockDefinitions: Record<string, BlockDefinition> = {}
 	Object.keys(blockstates).forEach(id => blockDefinitions[Identifier.create(id).toString()] = BlockDefinition.fromJson(blockstates[id]))
 	const blockModels: Record<string, BlockModel> = {}
@@ -186,6 +189,10 @@ Promise.all([
 	})
 	const animations = getAnimations(atlasContext, uvMap)
 	const textureAtlas = new TextureAtlas(atlasContext.getImageData(0, 0, atlasSize, atlasSize), idMap, animations)
+	const entityTextures = Object.fromEntries(Object.entries<[number, number, number, number]>(uvMap)
+		.filter(([id]) => id.startsWith('entity/'))
+		.map(([id, [, , width, height]]) => [`minecraft:${id}`, { width, height }]))
+	const entityModels = new EntityModelRegistry(entityModelData, entityTextures)
 
 	const fullBlocks = new Set(['stone', 'smooth_stone', 'iron_block', 'redstone_block', 'observer', 'glowstone'])
 	const resources: Resources = {
@@ -195,6 +202,7 @@ Promise.all([
 		getTextureAtlas: () => textureAtlas.getTextureAtlas(),
 		getTextureAnimations: () => textureAtlas.getTextureAnimations(),
 		getPixelSize: () => textureAtlas.getPixelSize(),
+		getEntityModel: (id, nbt) => entityModels.getEntityModel(id, nbt),
 		getBlockFlags(id) {
 			const name = id.path
 			if (name === 'glass') return { opaque: false, solid: true, self_culling: true, render_layer: 'translucent' }
@@ -229,8 +237,11 @@ Promise.all([
 	}, [10, 5, 25])
 
 	const fileInput = document.getElementById('litematic-file') as HTMLInputElement
+	const entityToggle = document.getElementById('render-entities') as HTMLInputElement
 	const fileStatus = document.getElementById('file-status')!
 	fileInput.disabled = false
+	entityToggle.disabled = false
+	entityToggle.addEventListener('change', () => renderer.setEntityRenderingEnabled(entityToggle.checked))
 	fileStatus.textContent = 'Using the built-in rendering validation scene.'
 	fileInput.addEventListener('change', async () => {
 		const file = fileInput.files?.[0]
@@ -241,7 +252,8 @@ Promise.all([
 			renderer.setStructure(structure)
 			controls.reset(getPreviewPosition(structure))
 			const [x, y, z] = structure.getSize()
-			fileStatus.textContent = `${file.name} · ${x} × ${y} × ${z} · ${structure.getBlocks().length.toLocaleString()} blocks`
+			const entityCount = structure.getEntities().length
+			fileStatus.textContent = `${file.name} · ${x} × ${y} × ${z} · ${structure.getBlocks().length.toLocaleString()} blocks · ${entityCount.toLocaleString()} entities`
 		} catch (error) {
 			console.error(error)
 			fileStatus.textContent = error instanceof Error ? error.message : `Could not open ${file.name}.`
