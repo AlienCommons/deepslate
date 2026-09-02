@@ -7,7 +7,7 @@ import type { LightProperties } from '../../src/render/LightEngine.js'
 const getProperties = (state: BlockState): LightProperties => {
 	if (state.is('stone')) return { opaque: true }
 	if (state.is('water')) return { light_opacity: 1 }
-	if (state.is('glowstone')) return { opaque: true, light_emission: 15 }
+	if (state.is('glowstone')) return { opaque: true }
 	return {}
 }
 
@@ -40,6 +40,15 @@ describe('baked light propagation', () => {
 		expect(light.getEmission([1, 1, 1])).toBe(15)
 		expect(light.getBlockLight([2, 1, 1])).toBe(14)
 		expect(light.getBlockLight([3, 1, 1])).toBe(13)
+	})
+
+	it('lets resource flags override vanilla state emission', () => {
+		const structure = new Structure([3, 1, 1])
+		structure.addBlock([0, 0, 0], 'minecraft:glowstone')
+		const light = new LightEngine(structure, () => ({ light_emission: 4 }))
+
+		expect(light.getEmission([0, 0, 0])).toBe(4)
+		expect(light.getBlockLight([1, 0, 0])).toBe(3)
 	})
 
 	it('uses a sparse fallback for oversized structure bounds', () => {

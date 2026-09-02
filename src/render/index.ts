@@ -1,6 +1,7 @@
 export * from './BlockColors.js'
 export * from './BlockDefinition.js'
 export * from './BlockModel.js'
+export * from './BlockLightEmission.js'
 export * from './ChunkBuilder.js'
 export * from './Cull.js'
 export * from './FluidRenderer.js'

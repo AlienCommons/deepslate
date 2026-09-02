@@ -1,5 +1,6 @@
 import type { vec3 } from 'gl-matrix'
 import type { BlockState, StructureProvider } from '../core/index.js'
+import { getDefaultLightEmission } from './BlockLightEmission.js'
 
 export type LightProperties = {
 	opaque?: boolean,
@@ -62,7 +63,8 @@ export class LightEngine {
 			const index = this.index(block.pos[0], block.pos[1], block.pos[2])
 			const flags = this.getProperties(block.state) ?? {}
 			const properties = {
-				emission: clampLight(flags.light_emission ?? (flags.render_layer === 'emissive' ? 15 : 0)),
+				emission: clampLight(flags.light_emission
+					?? Math.max(getDefaultLightEmission(block.state), flags.render_layer === 'emissive' ? 15 : 0)),
 				opacity: clampLight(flags.light_opacity ?? (flags.opaque ? 15 : 0)),
 			}
 			this.cells.set(index, properties)

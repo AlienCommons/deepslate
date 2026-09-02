@@ -175,9 +175,9 @@ Promise.all([
 		getBlockFlags(id) {
 			const name = id.path
 			if (name === 'glass') return { opaque: false, self_culling: true, render_layer: 'translucent' }
-			if (name === 'lava') return { opaque: false, light_emission: 15, render_layer: 'emissive' }
+			if (name === 'lava') return { opaque: false, render_layer: 'emissive' }
 			if (name === 'water') return { opaque: false, light_opacity: 1, self_culling: true, render_layer: 'translucent' }
-			if (name === 'glowstone') return { opaque: true, light_emission: 15 }
+			if (name === 'glowstone') return { opaque: true }
 			return { opaque: fullBlocks.has(name), render_layer: name.includes('leaves') ? 'cutout' : 'opaque' }
 		},
 		getBlockProperties: () => null,

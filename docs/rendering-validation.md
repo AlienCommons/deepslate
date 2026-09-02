@@ -40,6 +40,8 @@ The baked-light implementation was also checked against the installed, unobfusca
 
 Visual checks against Minecraft captures with smooth lighting enabled cover exposed faces, floor/wall junctions, enclosed corners, and roofed daylight. Glowstone and lava emission behavior is additionally checked against the client light-coordinate and lightmap implementations. Opaque neighbors affect ambient occlusion but no longer contribute a second zero-light penalty, which removes the former black bands along walls.
 
+Default block emission is a snapshot of every emitting block registered by the 26.2 client. It includes state-dependent sources such as lit furnaces and redstone lamps, candle count, waterlogged sea pickles, charged respawn anchors, copper-bulb oxidation, trial-spawner state, vault state, and the 26.2 copper torches and lanterns. Explicit resource-pack `light_emission` flags still take precedence for custom or modded blocks.
+
 ## Automated coverage
 
 The test suite covers:
