@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/misode/deepslate.git"
+    "url": "https://github.com/AlienCommons/deepslate.git"
   },
   "type": "module",
   "main": "./lib/index.js",
