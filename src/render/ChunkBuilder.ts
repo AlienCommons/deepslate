@@ -14,6 +14,11 @@ import { sampleVertexLight } from './VertexLighting.js'
 
 type ChunkMeshes = Record<RenderLayer, Mesh>
 
+export interface RenderMeshEntry {
+	mesh: Mesh
+	center: vec3
+}
+
 export class ChunkBuilder {
 	private chunks: ChunkMeshes[][][] = []
 	private readonly chunkCenters = new WeakMap<ChunkMeshes, vec3>()
@@ -135,13 +140,20 @@ export class ChunkBuilder {
 	}
 
 	public getMeshes(layer?: RenderLayer, viewMatrix?: mat4): Mesh[] {
+		const layers = layer === undefined ? RENDER_LAYERS : [layer]
+		return layers.flatMap(currentLayer => this.getMeshEntries(currentLayer, viewMatrix).map(entry => entry.mesh))
+	}
+
+	public getMeshEntries(layer: RenderLayer, viewMatrix?: mat4): RenderMeshEntry[] {
 		let chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
 		if (layer === 'translucent' && viewMatrix !== undefined) {
 			chunks = sortBackToFront(chunks, chunk => this.chunkCenters.get(chunk) ?? [0, 0, 0], viewMatrix)
 			chunks.forEach(chunk => chunk.translucent.sortQuadsBackToFront(this.gl, viewMatrix))
 		}
-		const layers = layer === undefined ? RENDER_LAYERS : [layer]
-		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))
+		return chunks.flatMap(chunk => chunk[layer].isEmpty() ? [] : [{
+			mesh: chunk[layer],
+			center: this.chunkCenters.get(chunk) ?? [0, 0, 0],
+		}])
 	}
 
 	public getLight(pos: vec3) {

@@ -15,6 +15,7 @@ import type { TextureAtlasProvider } from './TextureAtlas.js'
 import type { TextureAnimation } from './TextureAtlas.js'
 import type { EntityModelProvider } from './EntityModel.js'
 import { EntityMeshBuilder } from './EntityMeshBuilder.js'
+import { sortBackToFront } from './RenderOrder.js'
 
 const vsColor = `
   attribute vec4 vertPos;
@@ -255,6 +256,21 @@ export class StructureRenderer extends Renderer {
 
 		RENDER_LAYERS.forEach(layer => {
 			this.prepareRenderLayer(layer)
+			if (layer === 'translucent') {
+				const entries = [
+					...this.chunkBuilder.getMeshEntries(layer, viewMatrix).map(entry => ({ ...entry, cull: true })),
+					...(this.renderEntities ? this.entityMeshBuilder.getMeshEntries(layer).map(entry => {
+						entry.mesh.sortQuadsBackToFront(this.gl, viewMatrix)
+						return { mesh: entry.mesh, center: entry.pos, cull: false }
+					}) : []),
+				]
+				sortBackToFront(entries, entry => entry.center, viewMatrix).forEach(entry => {
+					if (!entry.cull) this.gl.disable(this.gl.CULL_FACE)
+					this.drawMesh(entry.mesh, { pos: true, color: true, texture: true, normal: true, light: true })
+					if (!entry.cull) this.gl.enable(this.gl.CULL_FACE)
+				})
+				return
+			}
 			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
 				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
 			})

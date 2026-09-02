@@ -1,3 +1,4 @@
+import { mat4 as Matrix4, vec3 as Vector3 } from 'gl-matrix'
 import type { mat4, vec3 } from 'gl-matrix'
 import { Vector } from '../math/Vector.js'
 import type { Color } from '../util/Color.js'
@@ -20,7 +21,7 @@ export class Mesh {
 	public linePosBuffer: WebGLBuffer | undefined
 	public lineColorBuffer: WebGLBuffer | undefined
 	private quadCenters: vec3[] | undefined
-	private sortedView: Float32Array | undefined
+	private sortedCamera: { position: vec3, forward: vec3 } | undefined
 
 	constructor(
 		public quads: Quad[] = [],
@@ -123,7 +124,8 @@ export class Mesh {
 	}
 
 	public sortQuadsBackToFront(gl: WebGLRenderingContext, viewMatrix: mat4) {
-		if (this.quads.length <= 1 || !this.indexBuffer || this.hasSortedView(viewMatrix)) return this
+		const camera = this.getCamera(viewMatrix)
+		if (this.quads.length <= 1 || !this.indexBuffer || this.hasSortedCamera(camera)) return this
 
 		this.quadCenters ??= this.quads.map(quad => {
 			const vertices = quad.vertices()
@@ -139,7 +141,7 @@ export class Mesh {
 			viewMatrix,
 		)
 		this.rebuildIndexBuffer(gl, order)
-		this.sortedView = new Float32Array(viewMatrix)
+		this.sortedCamera = camera
 		return this
 	}
 
@@ -203,7 +205,7 @@ export class Mesh {
 			this.rebuildIndexBuffer(gl)
 		}
 		this.quadCenters = undefined
-		this.sortedView = undefined
+		this.sortedCamera = undefined
 
 		return this
 	}
@@ -238,13 +240,24 @@ export class Mesh {
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
 	}
 
-	private hasSortedView(viewMatrix: mat4) {
-		return this.sortedView !== undefined
-			&& this.sortedView.every((value, index) => value === viewMatrix[index])
+	private hasSortedCamera(camera: { position: vec3, forward: vec3 } | undefined) {
+		if (!camera || !this.sortedCamera) return false
+		const positionDelta = Vector3.squaredDistance(camera.position, this.sortedCamera.position)
+		const directionSimilarity = Vector3.dot(camera.forward, this.sortedCamera.forward)
+		return positionDelta < 0.25 * 0.25 && directionSimilarity > Math.cos(Math.PI / 180)
+	}
+
+	private getCamera(viewMatrix: mat4) {
+		const inverse = Matrix4.invert(Matrix4.create(), viewMatrix)
+		if (!inverse) return undefined
+		return {
+			position: [inverse[12], inverse[13], inverse[14]] as vec3,
+			forward: Vector3.normalize(Vector3.create(), [-inverse[8], -inverse[9], -inverse[10]]),
+		}
 	}
 
 	private invalidateQuadOrder() {
 		this.quadCenters = undefined
-		this.sortedView = undefined
+		this.sortedCamera = undefined
 	}
 }

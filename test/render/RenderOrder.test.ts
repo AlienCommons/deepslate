@@ -67,6 +67,10 @@ describe('transparent render ordering', () => {
 		mesh.sortQuadsBackToFront(gl, view)
 		expect(uploads).toHaveLength(uploadCount)
 
+		mat4.translate(view, view, [0.1, 0, 0])
+		mesh.sortQuadsBackToFront(gl, view)
+		expect(uploads).toHaveLength(uploadCount)
+
 		mat4.rotateY(view, view, Math.PI)
 		mesh.sortQuadsBackToFront(gl, view)
 		expect(Array.from(uploads.at(-1)!)).toEqual([

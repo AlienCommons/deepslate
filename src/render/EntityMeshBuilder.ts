@@ -55,9 +55,11 @@ export class EntityMeshBuilder {
 	}
 
 	public getMeshes(layer?: RenderLayer) {
-		return this.meshes
-			.filter(entry => layer === undefined || entry.layer === layer)
-			.map(entry => entry.mesh)
+		return this.getMeshEntries(layer).map(entry => entry.mesh)
+	}
+
+	public getMeshEntries(layer?: RenderLayer) {
+		return this.meshes.filter(entry => layer === undefined || entry.layer === layer)
 	}
 
 	public dispose() {
