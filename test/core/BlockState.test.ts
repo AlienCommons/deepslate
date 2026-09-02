@@ -22,6 +22,15 @@ describe('BlockState', () => {
 		expect(props['facing']).toEqual('up')
 	})
 
+	it('does not expose mutable properties', () => {
+		const source = { facing: 'north' }
+		const state = new BlockState('piston', source)
+		source.facing = 'south'
+		state.getProperties().facing = 'west'
+
+		expect(state.getProperty('facing')).toBe('north')
+	})
+
 	it('getProperty', () => {
 		const state = new BlockState('piston', { extended: 'false', facing: 'up' })
 		expect(state.getProperty('extended')).toEqual('false')

@@ -9,11 +9,14 @@ export class BlockState {
 	public static readonly LAVA = new BlockState(Identifier.create('lava'), { level: '0' })
 
 	private readonly name: Identifier
+	private readonly properties: Readonly<Record<string, string>>
+
 	constructor(
 		name: Identifier | string,
-		private readonly properties: { [key: string]: string } = {}
+		properties: Record<string, string> = {}
 	) {
 		this.name = typeof name === 'string' ? Identifier.parse(name) : name
+		this.properties = { ...properties }
 	}
 
 	public getName() {
@@ -21,7 +24,7 @@ export class BlockState {
 	}
 
 	public getProperties() {
-		return this.properties
+		return { ...this.properties }
 	}
 
 	public getProperty(key: string): string | undefined {

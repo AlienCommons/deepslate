@@ -55,11 +55,10 @@ export class ChunkBuilder {
 
 		for (const b of this.structure.getBlocks()) {
 			const blockName = b.state.getName()
-			const blockProps = b.state.getProperties()
-			const defaultProps = this.resources.getDefaultBlockProperties(blockName) ?? {}
-			Object.entries(defaultProps).forEach(([k, v]) => {
-				if (!blockProps[k]) blockProps[k] = v
-			})
+			const blockProps = {
+				...this.resources.getDefaultBlockProperties(blockName),
+				...b.state.getProperties(),
+			}
 
 			const chunkPos: vec3 = [Math.floor(b.pos[0] / this.chunkSize[0]), Math.floor(b.pos[1] / this.chunkSize[1]), Math.floor(b.pos[2] / this.chunkSize[2])]
 
