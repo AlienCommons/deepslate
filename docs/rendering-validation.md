@@ -50,6 +50,7 @@ The test suite covers:
 - neighbor-aware fluid faces, corner heights, and flow UVs;
 - waterlogged slab, stair, and trapdoor clipping;
 - animated texture metadata and frame selection;
+- Minecraft 26.2 top-flow rotation, downward side-flow UVs, underside orientation, and the exact water/lava animation sequences;
 - transparent sorting and renderer state transitions;
 - sky light, water attenuation, lateral light spread, and block-light falloff;
 - smooth per-corner light sampling and ambient-occlusion levels;

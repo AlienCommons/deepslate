@@ -1,6 +1,6 @@
 import { mat4 } from 'gl-matrix'
-import type { Resources, TextureAnimation } from '../src/index.js'
-import { BlockDefinition, BlockModel, Identifier, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
+import type { Resources, TextureAnimation, TextureAnimationMetadata } from '../src/index.js'
+import { BlockDefinition, BlockModel, getTextureAnimationTimeline, Identifier, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
 import { getSpectatorLook, getSpectatorMovement } from './SpectatorMovement.js'
 
 const MINECRAFT_VERSION = '26.2'
@@ -114,18 +114,27 @@ function createValidationStructure() {
 }
 
 function getAnimations(atlas: CanvasRenderingContext2D, uvMap: Record<string, [number, number, number, number]>): TextureAnimation[] {
-	const frameTimes: Record<string, number> = {
-		'block/water_still': 2,
-		'block/water_flow': 2,
-		'block/lava_still': 2,
-		'block/lava_flow': 3,
+	const metadata: Record<string, TextureAnimationMetadata> = {
+		'block/water_still': { animation: { frametime: 2 } },
+		'block/water_flow': { animation: {} },
+		'block/lava_still': {
+			animation: {
+				frametime: 2,
+				frames: [
+					...Array.from({ length: 20 }, (_, index) => index),
+					...Array.from({ length: 18 }, (_, index) => 18 - index),
+				],
+			},
+		},
+		'block/lava_flow': { animation: { frametime: 3 } },
 	}
-	return Object.entries(frameTimes).flatMap(([id, ticks]) => {
+	return Object.entries(metadata).flatMap(([id, animationMetadata]) => {
 		const [x, y, width, height] = uvMap[id] ?? []
 		if (!width || height <= width) return []
-		const frames = Array.from({ length: Math.floor(height / width) }, (_, index) => ({
-			image: atlas.getImageData(x, y + index * width, width, width),
-			durationMs: ticks * 50,
+		const timeline = getTextureAnimationTimeline(Math.floor(height / width), animationMetadata)
+		const frames = timeline.map(step => ({
+			image: atlas.getImageData(x, y + step.index * width, width, width),
+			durationMs: step.durationMs,
 		}))
 		return [{ x, y, frames }]
 	})

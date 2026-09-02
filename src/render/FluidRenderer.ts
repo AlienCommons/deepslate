@@ -99,19 +99,36 @@ export function getFluidFlow(context: FluidRenderContext): [number, number] {
 	return length < 1e-6 ? [0, 0] : [x / length, z / length]
 }
 
-function textureCoords(uv: UV, flowing = false, flow: [number, number] = [0, 0]) {
+function textureCoords(uv: UV) {
 	const [u0, v0, u1, v1] = uv
-	if (!flowing) return [u0, v0, u0, v1, u1, v1, u1, v0]
+	return [u0, v0, u0, v1, u1, v1, u1, v0]
+}
 
-	const centerU = (u0 + u1) / 2
-	const centerV = (v0 + v1) / 2
-	const radiusU = (u1 - u0) * 0.35
-	const radiusV = (v1 - v0) * 0.35
-	const angle = Math.atan2(flow[1], flow[0]) - Math.PI / 4
-	return [0, Math.PI / 2, Math.PI, Math.PI * 3 / 2].flatMap(offset => [
-		centerU + Math.cos(angle + offset) * radiusU,
-		centerV + Math.sin(angle + offset) * radiusV,
-	])
+function flowingSurfaceTextureCoords(uv: UV, flow: [number, number]) {
+	const [u0, v0, u1, v1] = uv
+	const mapU = (value: number) => u0 + (u1 - u0) * value
+	const mapV = (value: number) => v0 + (v1 - v0) * value
+	const angle = Math.atan2(flow[1], flow[0]) - Math.PI / 2
+	const sin = Math.sin(angle) * 0.25
+	const cos = Math.cos(angle) * 0.25
+	return [
+		mapU(0.5 - cos - sin), mapV(0.5 - cos + sin),
+		mapU(0.5 - cos + sin), mapV(0.5 + cos + sin),
+		mapU(0.5 + cos + sin), mapV(0.5 + cos - sin),
+		mapU(0.5 + cos - sin), mapV(0.5 - cos - sin),
+	]
+}
+
+function sideTextureCoords(uv: UV, bottom: number, leftHeight: number, rightHeight: number) {
+	const [u0, v0, u1, v1] = uv
+	const mapU = (value: number) => u0 + (u1 - u0) * value
+	const mapV = (height: number) => v0 + (v1 - v0) * (1 - height) * 0.5
+	return [
+		mapU(0), mapV(bottom),
+		mapU(0), mapV(leftHeight),
+		mapU(0.5), mapV(rightHeight),
+		mapU(0.5), mapV(bottom),
+	]
 }
 
 function fluidQuad(points: [number, number, number][], uv: UV, color: [number, number, number], texture?: number[]) {
@@ -157,7 +174,7 @@ function appendFluidVolume(
 			[minX, southWest, maxZ],
 			[maxX, southEast, maxZ],
 			[maxX, northEast, minZ],
-		], flowing ? flowUv : stillUv, color, textureCoords(flowing ? flowUv : stillUv, flowing, flow)))
+		], flowing ? flowUv : stillUv, color, flowing ? flowingSurfaceTextureCoords(flowUv, flow) : textureCoords(stillUv)))
 	}
 
 	if (minY === 0) {
@@ -166,25 +183,32 @@ function appendFluidVolume(
 			mesh.quads.push(fluidQuad([
 				[minX, minY, minZ], [maxX, minY, minZ],
 				[maxX, minY, maxZ], [minX, minY, maxZ],
-			], stillUv, color))
+			], stillUv, color, [
+				stillUv[0], stillUv[1], stillUv[2], stillUv[1],
+				stillUv[2], stillUv[3], stillUv[0], stillUv[3],
+			]))
 		}
 	}
 
 	const sides = [
 		{
 			dx: 0, dz: -1, outer: minZ === 0,
+			leftHeight: northWest, rightHeight: northEast,
 			points: [[minX, minY, minZ], [minX, northWest, minZ], [maxX, northEast, minZ], [maxX, minY, minZ]],
 		},
 		{
 			dx: 1, dz: 0, outer: maxX === 1,
+			leftHeight: northEast, rightHeight: southEast,
 			points: [[maxX, minY, minZ], [maxX, northEast, minZ], [maxX, southEast, maxZ], [maxX, minY, maxZ]],
 		},
 		{
 			dx: 0, dz: 1, outer: maxZ === 1,
+			leftHeight: southEast, rightHeight: southWest,
 			points: [[maxX, minY, maxZ], [maxX, southEast, maxZ], [minX, southWest, maxZ], [minX, minY, maxZ]],
 		},
 		{
 			dx: -1, dz: 0, outer: minX === 0,
+			leftHeight: southWest, rightHeight: northWest,
 			points: [[minX, minY, maxZ], [minX, southWest, maxZ], [minX, northWest, minZ], [minX, minY, minZ]],
 		},
 	] as const
@@ -192,7 +216,12 @@ function appendFluidVolume(
 		if (!side.outer) continue
 		const neighbor = context.sample(side.dx, 0, side.dz)
 		if (!neighbor.solid && !isSameFluid(neighbor, type)) {
-			mesh.quads.push(fluidQuad(side.points.map(point => [...point]) as [number, number, number][], flowUv, color))
+			mesh.quads.push(fluidQuad(
+				side.points.map(point => [...point]) as [number, number, number][],
+				flowUv,
+				color,
+				sideTextureCoords(flowUv, minY, side.leftHeight, side.rightHeight),
+			))
 		}
 	}
 }

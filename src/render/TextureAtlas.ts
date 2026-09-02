@@ -22,6 +22,21 @@ export type TextureAnimation = {
 	frames: TextureAnimationFrame[],
 }
 
+export type TextureAnimationStep = {
+	index: number,
+	durationMs: number,
+}
+
+export function getTextureAnimationTimeline(frameCount: number, metadata: TextureAnimationMetadata = {}): TextureAnimationStep[] {
+	const animation = metadata.animation
+	const defaultTime = animation?.frametime ?? 1
+	const sequence = animation?.frames ?? Array.from({ length: frameCount }, (_, frame) => frame)
+	return sequence.map(entry => ({
+		index: typeof entry === 'number' ? entry : entry.index,
+		durationMs: (typeof entry === 'number' ? defaultTime : entry.time ?? defaultTime) * 50,
+	}))
+}
+
 export function getTextureAnimationFrame(animation: TextureAnimation, elapsedMs: number) {
 	const duration = animation.frames.reduce((total, frame) => total + frame.durationMs, 0)
 	if (duration <= 0) return 0
@@ -96,19 +111,14 @@ export class TextureAtlas implements TextureAtlasProvider {
 			ctx.drawImage(img, 0, 0, img.width, frameSize, 16 * u, 16 * v, 16, 16)
 
 			if (frameCount > 1) {
-				const animation = metadata[id]?.animation
-				const defaultTime = animation?.frametime ?? 1
-				const sequence = animation?.frames ?? Array.from({ length: frameCount }, (_, frame) => frame)
 				const frameCanvas = document.createElement('canvas')
 				frameCanvas.width = 16
 				frameCanvas.height = 16
 				const frameContext = frameCanvas.getContext('2d')!
-				const frames = sequence.map(entry => {
-					const frame = typeof entry === 'number' ? entry : entry.index
-					const time = typeof entry === 'number' ? defaultTime : entry.time ?? defaultTime
+				const frames = getTextureAnimationTimeline(frameCount, metadata[id]).map(step => {
 					frameContext.clearRect(0, 0, 16, 16)
-					frameContext.drawImage(img, 0, frame * frameSize, img.width, frameSize, 0, 0, 16, 16)
-					return { image: frameContext.getImageData(0, 0, 16, 16), durationMs: time * 50 }
+					frameContext.drawImage(img, 0, step.index * frameSize, img.width, frameSize, 0, 0, 16, 16)
+					return { image: frameContext.getImageData(0, 0, 16, 16), durationMs: step.durationMs }
 				})
 				animations.push({ x: 16 * u, y: 16 * v, frames })
 			}

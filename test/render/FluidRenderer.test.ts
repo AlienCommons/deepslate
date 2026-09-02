@@ -75,6 +75,41 @@ describe('fluid surface geometry', () => {
 		}), atlas).quads[0]
 		expect(levelTop.v1.textureLimit).toEqual([0, 0, 0.5, 0.5])
 		expect(flowingTop.v1.textureLimit).toEqual([0.5, 0.5, 1, 1])
+		expect(flowingTop.vertices().map(vertex => vertex.texture)).toEqual([
+			[0.875, 0.625], [0.625, 0.625], [0.625, 0.875], [0.875, 0.875],
+		])
+	})
+
+	it('maps flowing side textures from top to bottom like Minecraft', () => {
+		const fluid: FluidState = { type: 'water', level: 0 }
+		const mesh = getFluidMesh(context(fluid, {
+			'0,1,0': { fluid },
+			'0,-1,0': { fluid },
+			'1,0,0': { solid: true },
+			'0,0,1': { solid: true },
+			'-1,0,0': { solid: true },
+		}), atlas)
+
+		expect(mesh.quads).toHaveLength(1)
+		expect(mesh.quads[0].vertices().map(vertex => vertex.texture)).toEqual([
+			[0.5, 0.75], [0.5, 0.5], [0.75, 0.5], [0.75, 0.75],
+		])
+	})
+
+	it('keeps the underside still texture aligned with Minecraft', () => {
+		const fluid: FluidState = { type: 'water', level: 0 }
+		const mesh = getFluidMesh(context(fluid, {
+			'0,1,0': { fluid },
+			'0,0,-1': { fluid },
+			'1,0,0': { fluid },
+			'0,0,1': { fluid },
+			'-1,0,0': { fluid },
+		}), atlas)
+
+		expect(mesh.quads).toHaveLength(1)
+		expect(mesh.quads[0].vertices().map(vertex => vertex.texture)).toEqual([
+			[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5],
+		])
 	})
 
 	it('emits only the outside faces of a solid fluid section', () => {
