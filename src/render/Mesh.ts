@@ -13,6 +13,7 @@ export class Mesh {
 	public textureLimitBuffer: WebGLBuffer | undefined
 	public normalBuffer: WebGLBuffer | undefined
 	public blockPosBuffer: WebGLBuffer | undefined
+	public lightBuffer: WebGLBuffer | undefined
 	public indexBuffer: WebGLBuffer | undefined
 
 	public linePosBuffer: WebGLBuffer | undefined
@@ -119,7 +120,7 @@ export class Mesh {
 		}
 	}
 
-	public rebuild(gl: WebGLRenderingContext, options: { pos?: boolean, color?: boolean, texture?: boolean, normal?: boolean, blockPos?: boolean }) {
+	public rebuild(gl: WebGLRenderingContext, options: { pos?: boolean, color?: boolean, texture?: boolean, normal?: boolean, blockPos?: boolean, light?: boolean }) {
 		const rebuildBuffer = (buffer: WebGLBuffer | undefined, type: number, data: BufferSource): WebGLBuffer | undefined => {
 			if (!buffer) {
 				buffer = gl.createBuffer() ?? undefined
@@ -161,6 +162,9 @@ export class Mesh {
 		}
 		if (options.blockPos) {
 			this.blockPosBuffer = rebuildBufferV(this.quads, this.blockPosBuffer, v => v.blockPos?.components())
+		}
+		if (options.light) {
+			this.lightBuffer = rebuildBufferV(this.quads, this.lightBuffer, v => v.light)
 		}
 		if (this.quads.length === 0) {
 			if (this.indexBuffer) gl.deleteBuffer(this.indexBuffer)

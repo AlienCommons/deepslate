@@ -12,6 +12,7 @@ const vsSource = `
   attribute vec4 texLimit;
   attribute vec3 vertColor;
   attribute vec3 normal;
+  attribute vec3 bakedLight;
 
   uniform mat4 mView;
   uniform mat4 mProj;
@@ -19,14 +20,16 @@ const vsSource = `
   varying highp vec2 vTexCoord;
   varying highp vec4 vTexLimit;
   varying highp vec3 vTintColor;
-  varying highp float vLighting;
+  varying highp float vDirectionalLight;
+  varying highp vec3 vBakedLight;
 
   void main(void) {
     gl_Position = mProj * mView * vertPos;
     vTexCoord = texCoord;
 	vTexLimit = texLimit;
     vTintColor = vertColor;
-    vLighting = normal.y * 0.2 + abs(normal.z) * 0.1 + 0.8;
+    vDirectionalLight = normal.y * 0.2 + abs(normal.z) * 0.1 + 0.8;
+    vBakedLight = bakedLight;
   }
 `
 
@@ -35,7 +38,8 @@ const fsSource = `
   varying highp vec2 vTexCoord;
   varying highp vec4 vTexLimit;
   varying highp vec3 vTintColor;
-  varying highp float vLighting;
+  varying highp float vDirectionalLight;
+  varying highp vec3 vBakedLight;
 
   uniform sampler2D sampler;
   uniform highp float pixelSize;
@@ -47,7 +51,10 @@ const fsSource = `
 			vTexLimit.zw - vec2(0.5, 0.5) * pixelSize
 		));
 		if(texColor.a < 0.01) discard;
-		float light = mix(vLighting, 1.0, emissive);
+		float lightLevel = max(vBakedLight.x, vBakedLight.y);
+		float minecraftLight = lightLevel / (4.0 - 3.0 * lightLevel);
+		float baked = mix(0.035, 1.0, minecraftLight) * vBakedLight.z;
+		float light = mix(baked * vDirectionalLight, 1.0, emissive);
 		gl_FragColor = vec4(texColor.xyz * vTintColor * light, texColor.a);
   }
 `
@@ -173,7 +180,7 @@ export class Renderer {
 		this.gl.enable(this.gl.BLEND)
 	}
 
-	protected drawMesh(mesh: Mesh, options: { pos?: boolean, color?: boolean, texture?: boolean, normal?: boolean, blockPos?: boolean }) {
+	protected drawMesh(mesh: Mesh, options: { pos?: boolean, color?: boolean, texture?: boolean, normal?: boolean, blockPos?: boolean, light?: boolean }) {
 		if (mesh.quadVertices() > 0) {
 			if (options.pos) this.setVertexAttr('vertPos', 3, mesh.posBuffer)
 			if (options.color) this.setVertexAttr('vertColor', 3, mesh.colorBuffer)
@@ -183,6 +190,7 @@ export class Renderer {
 			}
 			if (options.normal) this.setVertexAttr('normal', 3, mesh.normalBuffer)
 			if (options.blockPos) this.setVertexAttr('blockPos', 3, mesh.blockPosBuffer)
+			if (options.light) this.setVertexAttr('bakedLight', 3, mesh.lightBuffer)
 	
 			if (!mesh.indexBuffer) throw new Error('Expected index buffer')
 			this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer)

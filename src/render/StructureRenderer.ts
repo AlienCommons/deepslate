@@ -225,7 +225,7 @@ export class StructureRenderer extends Renderer {
 		RENDER_LAYERS.forEach(layer => {
 			this.prepareRenderLayer(layer)
 			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
-				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true })
+				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
 			})
 		})
 		this.finishRenderLayers()

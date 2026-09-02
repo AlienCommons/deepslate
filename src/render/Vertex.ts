@@ -13,6 +13,7 @@ export class Vertex {
 		public textureLimit: [number, number, number, number] | undefined,
 		public normal: Vector | undefined,
 		public blockPos: Vector | undefined,
+		public light: [number, number, number] = [1, 0, 1],
 	) {}
 
 	public transform(transformation: mat4) {

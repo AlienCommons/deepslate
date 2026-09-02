@@ -4,11 +4,13 @@ import { BlockPos, Direction, Vector } from '../index.js'
 import type { BlockState } from '../core/BlockState.js'
 import { getFluidMesh, getWaterloggedFluidVolumes } from './FluidRenderer.js'
 import type { FluidCell, FluidRenderContext, FluidState } from './FluidRenderer.js'
+import { LightEngine } from './LightEngine.js'
 import { Mesh } from './Mesh.js'
 import { RENDER_LAYERS, resolveRenderLayer } from './RenderLayer.js'
 import type { RenderLayer } from './RenderLayer.js'
 import { sortBackToFront } from './RenderOrder.js'
 import { SpecialRenderers } from './SpecialRenderer.js'
+import { sampleVertexLight } from './VertexLighting.js'
 
 type ChunkMeshes = Record<RenderLayer, Mesh>
 
@@ -16,6 +18,7 @@ export class ChunkBuilder {
 	private chunks: ChunkMeshes[][][] = []
 	private readonly chunkCenters = new WeakMap<ChunkMeshes, vec3>()
 	private readonly chunkSize: vec3
+	private lightEngine: LightEngine
 
 	constructor(
 		private readonly gl: WebGLRenderingContext,
@@ -24,17 +27,20 @@ export class ChunkBuilder {
 		chunkSize: number | vec3 = 16
 	) {
 		this.chunkSize = typeof chunkSize === 'number' ? [chunkSize, chunkSize, chunkSize] : chunkSize
+		this.lightEngine = this.createLightEngine()
 		this.updateStructureBuffers()
 	}
 
 	public setStructure(structure: StructureProvider) {
 		this.structure = structure
+		this.lightEngine = this.createLightEngine()
 		this.updateStructureBuffers()
 	}
 
 	public updateStructureBuffers(chunkPositions?: vec3[]): void {
 		if (!this.structure)
 			return
+		this.lightEngine.rebuild()
 		
 		if (!chunkPositions) {
 			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
@@ -104,13 +110,21 @@ export class ChunkBuilder {
 
 		if (!chunkPositions) {
 			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
-				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true }))
+				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true, light: true }))
 			})))
 		} else {
+			const rebuiltChunks = new Set(chunkPositions.map(chunkPos => this.getChunk(chunkPos)))
 			chunkPositions.forEach(chunkPos => {
 				const chunk = this.getChunk(chunkPos)
-				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true }))
+				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true, light: true }))
 			})
+			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
+				if (rebuiltChunks.has(chunk)) return
+				RENDER_LAYERS.forEach(layer => {
+					this.updateMeshLighting(chunk[layer])
+					chunk[layer].rebuild(this.gl, { light: true })
+				})
+			})))
 		}
 	}
 
@@ -179,9 +193,26 @@ export class ChunkBuilder {
 
 		for (const q of mesh.quads) {
 			const normal = q.normal()
-			q.forEach(v => v.normal = normal)
-			q.forEach(v => v.blockPos = new Vector(pos[0], pos[1], pos[2]))
+			const blockPos = new Vector(pos[0], pos[1], pos[2])
+			q.forEach(v => {
+				v.normal = normal
+				v.blockPos = blockPos
+			})
 		}
+		this.updateMeshLighting(mesh)
+	}
+
+	private updateMeshLighting(mesh: Mesh) {
+		for (const quad of mesh.quads) {
+			quad.forEach(vertex => {
+				if (!vertex.blockPos || !vertex.normal) return
+				vertex.light = sampleVertexLight(vertex.pos, vertex.blockPos, vertex.normal, this.lightEngine)
+			})
+		}
+	}
+
+	private createLightEngine() {
+		return new LightEngine(this.structure, state => this.resources.getBlockFlags(state.getName()))
 	}
 
 	private getChunk(chunkPos: vec3): ChunkMeshes {
