@@ -43,10 +43,6 @@
     "./util": {
       "types": "./lib/util/main.d.ts",
       "default": "./lib/util/main.js"
-    },
-    "./worldgen": {
-      "types": "./lib/worldgen/main.d.ts",
-      "default": "./lib/worldgen/main.js"
     }
   },
   "scripts": {
