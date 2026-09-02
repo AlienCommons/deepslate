@@ -84,6 +84,17 @@ function createValidationStructure() {
 		structure.addBlock([x, 5, 10], 'minecraft:water', { level: String(Math.min(7, x - 1)) })
 	}
 
+	// A roofed alcove makes skylight falloff, smooth corner lighting, ambient
+	// occlusion, and local block light easy to inspect in one view.
+	for (let x = 10; x <= 18; x += 1) {
+		for (let z = 9; z <= 18; z += 1) structure.addBlock([x, 6, z], 'minecraft:stone')
+		for (let y = 1; y <= 5; y += 1) structure.addBlock([x, y, 18], 'minecraft:stone')
+	}
+	for (let y = 1; y <= 5; y += 1) {
+		for (let z = 9; z <= 18; z += 1) structure.addBlock([18, y, z], 'minecraft:stone')
+	}
+	structure.addBlock([13, 2, 16], 'minecraft:glowstone')
+
 	structure.addBlock([11, 1, 3], 'minecraft:oak_fence', { north: 'false', east: 'false', south: 'false', west: 'false', waterlogged: 'true' })
 	structure.addBlock([13, 1, 3], 'minecraft:oak_slab', { type: 'bottom', waterlogged: 'true' })
 	structure.addBlock([15, 1, 3], 'minecraft:oak_slab', { type: 'top', waterlogged: 'true' })
@@ -152,7 +163,7 @@ Promise.all([
 	const animations = getAnimations(atlasContext, uvMap)
 	const textureAtlas = new TextureAtlas(atlasContext.getImageData(0, 0, atlasSize, atlasSize), idMap, animations)
 
-	const fullBlocks = new Set(['stone', 'smooth_stone', 'iron_block', 'redstone_block', 'observer'])
+	const fullBlocks = new Set(['stone', 'smooth_stone', 'iron_block', 'redstone_block', 'observer', 'glowstone'])
 	const resources: Resources = {
 		getBlockDefinition: id => blockDefinitions[id.toString()],
 		getBlockModel: id => blockModels[id.toString()],
@@ -163,8 +174,9 @@ Promise.all([
 		getBlockFlags(id) {
 			const name = id.path
 			if (name === 'glass') return { opaque: false, self_culling: true, render_layer: 'translucent' }
-			if (name === 'lava') return { opaque: false, render_layer: 'emissive' }
-			if (name === 'water') return { opaque: false, self_culling: true, render_layer: 'translucent' }
+			if (name === 'lava') return { opaque: false, light_emission: 15, render_layer: 'emissive' }
+			if (name === 'water') return { opaque: false, light_opacity: 1, self_culling: true, render_layer: 'translucent' }
+			if (name === 'glowstone') return { opaque: true, light_emission: 15 }
 			return { opaque: fullBlocks.has(name), render_layer: name.includes('leaves') ? 'cutout' : 'opaque' }
 		},
 		getBlockProperties: () => null,
