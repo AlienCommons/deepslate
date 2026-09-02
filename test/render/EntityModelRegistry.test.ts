@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Identifier } from '../../src/core/index.js'
-import { NbtCompound, NbtInt, NbtString } from '../../src/nbt/index.js'
+import { NbtByte, NbtCompound, NbtInt, NbtString } from '../../src/nbt/index.js'
 import { EntityModelRegistry } from '../../src/render/EntityModelRegistry.js'
 
 const geometry = {
@@ -50,5 +50,33 @@ describe('EntityModelRegistry', () => {
 
 		expect(registry.getEntityModel(Identifier.parse('minecraft:slime'), new NbtCompound())?.getRenderLayer()).toBe('translucent')
 		expect(registry.getEntityModel(Identifier.parse('minecraft:armor_stand'), new NbtCompound())?.getRenderLayer()).toBe('cutout')
+	})
+
+	it('caches and selects entity texture states independently', () => {
+		const registry = new EntityModelRegistry({
+			models: {
+				'minecraft:wolf': { axes: {
+					state: { default: 'wild', options: { wild: {}, angry: {}, tame: {} } },
+					age: { options: { adult: { geometry: 'wolf', textures: {
+						wild: 'wolf/wolf',
+						angry: 'wolf/wolf_angry',
+						tame: 'wolf/wolf_tame',
+					} } } },
+				} },
+			},
+			geometries: { wolf: geometry },
+		}, {
+			'minecraft:entity/wolf/wolf': { width: 64, height: 32 },
+			'minecraft:entity/wolf/wolf_angry': { width: 64, height: 32 },
+			'minecraft:entity/wolf/wolf_tame': { width: 64, height: 32 },
+		})
+
+		const wild = registry.getEntityModel(Identifier.parse('minecraft:wolf'), new NbtCompound())
+		const angry = registry.getEntityModel(Identifier.parse('minecraft:wolf'), new NbtCompound().set('Angry', new NbtByte(1)))
+		const tame = registry.getEntityModel(Identifier.parse('minecraft:wolf'), new NbtCompound().set('Owner', new NbtString('player')))
+
+		expect(wild?.getTexture().path).toBe('entity/wolf/wolf')
+		expect(angry?.getTexture().path).toBe('entity/wolf/wolf_angry')
+		expect(tame?.getTexture().path).toBe('entity/wolf/wolf_tame')
 	})
 })

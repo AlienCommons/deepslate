@@ -80,7 +80,7 @@ export class EntityModelRegistry implements EntityModelProvider {
 	}
 
 	public getEntityModel(id: Identifier, nbt: NbtCompound) {
-		const cacheKey = `${id}|${this.appearanceKey(nbt)}`
+		const cacheKey = `${id}|${this.appearanceKey(id.toString(), nbt)}`
 		const cached = this.modelCache.get(cacheKey)
 		if (cached) return cached
 		const model = this.createSpecialModel(id.path, nbt) ?? this.createDataModel(id.toString(), nbt) ?? this.createFallbackModel(id.path)
@@ -97,7 +97,9 @@ export class EntityModelRegistry implements EntityModelProvider {
 			resolved = { ...resolved, ...axis.options[selection] }
 		})
 		const geometry = resolved.geometry ? this.data.geometries[resolved.geometry] : undefined
-		let texture = resolved.texture ?? Object.values(resolved.textures ?? {})[0]
+		let texture = resolved.texture
+			?? resolved.textures?.[this.getTextureState(nbt)]
+			?? Object.values(resolved.textures ?? {})[0]
 		if (this.isBaby(nbt) && resolved.baby_texture) texture = resolved.baby_texture
 		if (!geometry || !texture) return null
 		const textureId = `minecraft:entity/${texture}`
@@ -109,6 +111,10 @@ export class EntityModelRegistry implements EntityModelProvider {
 		const options = Object.keys(axis.options)
 		if (name === 'age') return this.isBaby(nbt) && axis.options.baby ? 'baby' : (axis.options.adult ? 'adult' : axis.default ?? options[0])
 		if (name === 'size') return nbt.getBoolean('Small') && axis.options.small ? 'small' : (axis.default ?? (axis.options.large ? 'large' : options[0]))
+		if (name === 'state') {
+			const state = this.getTextureState(nbt)
+			return axis.options[state] ? state : (axis.default ?? options[0])
+		}
 		const raw = nbt.getString(name) || nbt.getString(name[0].toUpperCase() + name.slice(1))
 		const normalized = raw.replace(/^minecraft:/, '')
 		return (normalized && axis.options[normalized]) ? normalized : (axis.default ?? options[0])
@@ -148,13 +154,12 @@ export class EntityModelRegistry implements EntityModelProvider {
 		}, this.getRenderLayer(path))
 	}
 
-	private appearanceKey(nbt: NbtCompound) {
-		return ['IsBaby', 'Age', 'Small', 'Type', 'variant', 'Variant']
-			.map(key => {
-				const value = nbt.get(key)
-				return `${key}=${value?.isNumber() ? value.getAsNumber() : value?.getAsString() ?? ''}`
-			})
-			.join(';')
+	private appearanceKey(id: string, nbt: NbtCompound) {
+		const axes = this.data.models[id]?.axes ?? {}
+		const selections = Object.entries(axes)
+			.map(([name, axis]) => `${name}=${this.selectAxis(name, axis, nbt)}`)
+		selections.push(`type=${nbt.getString('Type')}`)
+		return selections.join(';')
 	}
 
 	private hasTexture(id: string) {
@@ -163,5 +168,11 @@ export class EntityModelRegistry implements EntityModelProvider {
 
 	private getRenderLayer(path: string): RenderLayer {
 		return path === 'slime' ? 'translucent' : 'cutout'
+	}
+
+	private getTextureState(nbt: NbtCompound) {
+		if (nbt.getBoolean('Angry')) return 'angry'
+		if (nbt.getBoolean('Tame') || nbt.has('Owner') || nbt.has('OwnerUUID')) return 'tame'
+		return 'wild'
 	}
 }
