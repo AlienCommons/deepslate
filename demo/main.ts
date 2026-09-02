@@ -1,7 +1,7 @@
 import { mat4 } from 'gl-matrix'
 import type { Resources, TextureAnimation } from '../src/index.js'
 import { BlockDefinition, BlockModel, Identifier, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
-import { getSpectatorMovement } from './SpectatorMovement.js'
+import { getSpectatorLook, getSpectatorMovement } from './SpectatorMovement.js'
 
 const MINECRAFT_VERSION = '26.2'
 const MCMETA = 'https://raw.githubusercontent.com/misode/mcmeta/'
@@ -23,8 +23,9 @@ class SpectatorControls {
 		canvas.addEventListener('click', () => canvas.requestPointerLock())
 		document.addEventListener('mousemove', event => {
 			if (document.pointerLockElement !== canvas) return
-			this.yaw -= event.movementX * 0.0025
-			this.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.pitch + event.movementY * 0.0025))
+			const [yaw, pitch] = getSpectatorLook(this.yaw, this.pitch, event.movementX, event.movementY)
+			this.yaw = yaw
+			this.pitch = pitch
 		})
 		document.addEventListener('keydown', event => {
 			this.keys.add(event.code)
