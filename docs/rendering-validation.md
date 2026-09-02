@@ -20,7 +20,7 @@ The same categories are present in the demo validation scene. The demo uses Mine
 | --- | --- | --- |
 | Water surface | Source blocks sit below the full-block ceiling; flowing edges use different corner heights. | Neighboring fluid states determine exposed faces and averaged corner heights. Internal faces between compatible fluids are culled. |
 | Flow direction | Flowing water rotates its surface texture with the direction of travel. | Flow vectors rotate the flowing-water UVs; still surfaces use the still-water texture. |
-| Glass and water | Glass remains readable in front of water without writing transparent fragments into the depth buffer. | Translucent chunks and their contained quads are rendered back-to-front with depth writes disabled, preserving the glass/water relationship as the camera moves. |
+| Glass and water | Glass remains readable in front of water without writing transparent fragments into the depth buffer. | Translucent chunks, entities, and their contained quads are rendered in a shared back-to-front pass with depth writes disabled, preserving the glass/water relationship as the camera moves. |
 | Waterlogged blocks | Water occupies only the unfilled portion of slabs, stairs, and trapdoors. | Slabs, stairs, and trapdoors use shape-aware clipped fluid volumes. Other waterlogged shapes retain a conservative approximation. |
 | Lava and light-emitting blocks | Lava textures animate and remain visually bright. | Texture animation metadata updates the atlas at runtime, and emissive geometry bypasses directional darkening. |
 | Sky and block light | Daylight enters exposed columns and loses one level as it spreads under cover; light-emitting blocks propagate local light up to level 15. | A baked two-channel light volume propagates sky and block light through the structure, including configurable opacity and emission per block. |
@@ -56,6 +56,10 @@ The test suite covers:
 - smooth per-corner light sampling and ambient-occlusion levels;
 - a dense 16 x 16 x 16 fluid-section performance benchmark.
 - a 32 x 32 x 32 combined sky- and block-light propagation benchmark.
+- structured-clone-safe schematic snapshots and cancellable Worker loading;
+- cooperative multi-chunk building and bounded structure queries;
+- entity lighting, appearance-state caching, and entity render-layer selection;
+- global translucent mesh ordering and camera-thresholded quad re-sorting.
 
 The demo is also built in CI so resource or integration regressions fail the workflow.
 
@@ -65,7 +69,7 @@ The following remain outside this renderer's current accuracy target:
 
 - biome-dependent water tint;
 - Minecraft's dimension-specific sky rules, time-of-day brightness, colored light, dynamic entity shadows, fog, and post-processing;
-- exact global ordering between intersecting translucent surfaces across chunk boundaries;
+- exact per-fragment ordering where translucent surfaces physically intersect;
 - exact water clipping for every possible waterlogged block model;
 - byte-for-byte reproduction of Minecraft's internal flowing-fluid UV calculation.
 

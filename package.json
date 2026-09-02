@@ -27,6 +27,7 @@
       "types": "./lib/core/main.d.ts",
       "default": "./lib/core/main.js"
     },
+    "./core/LitematicWorker.js": "./lib/core/LitematicWorker.js",
     "./math": {
       "types": "./lib/math/main.d.ts",
       "default": "./lib/math/main.js"
