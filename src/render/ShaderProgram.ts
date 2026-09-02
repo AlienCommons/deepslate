@@ -13,7 +13,13 @@ export class ShaderProgram {
 
 	private initShaderProgram(vsSource: string, fsSource: string) {
 		const vertexShader = this.loadShader(this.gl.VERTEX_SHADER, vsSource)!
-		const fragmentShader = this.loadShader(this.gl.FRAGMENT_SHADER, fsSource)!
+		let fragmentShader: WebGLShader
+		try {
+			fragmentShader = this.loadShader(this.gl.FRAGMENT_SHADER, fsSource)!
+		} catch (error) {
+			this.gl.deleteShader(vertexShader)
+			throw error
+		}
 
 		const shaderProgram = this.gl.createProgram()!
 		this.gl.attachShader(shaderProgram, vertexShader)
@@ -21,8 +27,16 @@ export class ShaderProgram {
 		this.gl.linkProgram(shaderProgram)
 
 		if (!this.gl.getProgramParameter(shaderProgram, this.gl.LINK_STATUS)) {
-			throw new Error(`Unable to link shader program: ${this.gl.getProgramInfoLog(shaderProgram)}`)
+			const error = new Error(`Unable to link shader program: ${this.gl.getProgramInfoLog(shaderProgram)}`)
+			this.gl.deleteProgram(shaderProgram)
+			this.gl.deleteShader(vertexShader)
+			this.gl.deleteShader(fragmentShader)
+			throw error
 		}
+		this.gl.detachShader(shaderProgram, vertexShader)
+		this.gl.detachShader(shaderProgram, fragmentShader)
+		this.gl.deleteShader(vertexShader)
+		this.gl.deleteShader(fragmentShader)
 
 		return shaderProgram
 	}

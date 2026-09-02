@@ -137,6 +137,8 @@ export class StructureRenderer extends Renderer {
 	}
 
 	public setStructure(structure: StructureProvider) {
+		this.gridMesh.dispose(this.gl)
+		this.invisibleBlocksMesh.dispose(this.gl)
 		this.structure = structure
 		this.chunkBuilder.setStructure(structure)
 		this.entityMeshBuilder.setStructure(structure)
@@ -150,6 +152,18 @@ export class StructureRenderer extends Renderer {
 
 	public isEntityRenderingEnabled() {
 		return this.renderEntities
+	}
+
+	public override dispose() {
+		this.gridMesh.dispose(this.gl)
+		this.outlineMesh.dispose(this.gl)
+		this.invisibleBlocksMesh.dispose(this.gl)
+		this.chunkBuilder.dispose()
+		this.entityMeshBuilder.dispose()
+		this.gl.deleteTexture(this.atlasTexture)
+		this.gl.deleteProgram(this.gridShaderProgram)
+		this.gl.deleteProgram(this.colorShaderProgram)
+		super.dispose()
 	}
 
 	public updateStructureBuffers(chunkPositions?: vec3[]): void {

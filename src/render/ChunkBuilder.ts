@@ -37,6 +37,13 @@ export class ChunkBuilder {
 		this.updateStructureBuffers()
 	}
 
+	public dispose() {
+		this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
+			RENDER_LAYERS.forEach(layer => chunk[layer].dispose(this.gl))
+		})))
+		this.chunks = []
+	}
+
 	public updateStructureBuffers(chunkPositions?: vec3[]): void {
 		if (!this.structure)
 			return

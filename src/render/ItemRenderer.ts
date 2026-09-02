@@ -57,6 +57,7 @@ export class ItemRenderer extends Renderer {
 	}
 
 	public updateMesh(context: ItemRenderingContext = {}) {
+		this.mesh?.dispose(this.gl)
 		this.mesh = ItemRenderer.getItemMesh(this.item, this.resources, context)
 		this.mesh.computeNormals()
 		this.mesh.rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, light: true })
@@ -93,5 +94,11 @@ export class ItemRenderer extends Renderer {
 		this.setTexture(this.atlasTexture, this.resources.getPixelSize?.())
 		this.prepareDraw(view)
 		this.drawMesh(this.mesh, { pos: true, color: true, texture: true, normal: true, light: true })
+	}
+
+	public override dispose() {
+		this.mesh.dispose(this.gl)
+		this.gl.deleteTexture(this.atlasTexture)
+		super.dispose()
 	}
 }

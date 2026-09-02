@@ -34,6 +34,35 @@ export class Mesh {
 		return this	
 	}
 
+	public dispose(gl: WebGLRenderingContext) {
+		const buffers = [
+			this.posBuffer,
+			this.colorBuffer,
+			this.textureBuffer,
+			this.textureLimitBuffer,
+			this.normalBuffer,
+			this.blockPosBuffer,
+			this.lightBuffer,
+			this.indexBuffer,
+			this.linePosBuffer,
+			this.lineColorBuffer,
+		]
+		buffers.forEach(buffer => {
+			if (buffer) gl.deleteBuffer(buffer)
+		})
+		this.posBuffer = undefined
+		this.colorBuffer = undefined
+		this.textureBuffer = undefined
+		this.textureLimitBuffer = undefined
+		this.normalBuffer = undefined
+		this.blockPosBuffer = undefined
+		this.lightBuffer = undefined
+		this.indexBuffer = undefined
+		this.linePosBuffer = undefined
+		this.lineColorBuffer = undefined
+		return this
+	}
+
 	public isEmpty() {
 		return this.quads.length === 0 && this.lines.length === 0
 	}

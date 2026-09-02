@@ -122,6 +122,10 @@ export class Renderer {
 		this.gl.cullFace(this.gl.BACK)
 	}
 
+	public dispose() {
+		this.gl.deleteProgram(this.shaderProgram)
+	}
+
 	protected setShader(shader: WebGLProgram) {
 		this.gl.useProgram(shader)
 		this.activeShader = shader

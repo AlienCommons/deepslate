@@ -20,6 +20,7 @@ export class EntityMeshBuilder {
 	}
 
 	public rebuild() {
+		this.meshes.forEach(mesh => mesh.dispose(this.gl))
 		this.meshes = []
 		if (!this.resources.getEntityModel || !this.structure.getEntities) return
 		this.structure.getEntities().forEach(entity => {
@@ -38,5 +39,10 @@ export class EntityMeshBuilder {
 
 	public getMeshes() {
 		return this.meshes
+	}
+
+	public dispose() {
+		this.meshes.forEach(mesh => mesh.dispose(this.gl))
+		this.meshes = []
 	}
 }
