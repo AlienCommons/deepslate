@@ -64,6 +64,8 @@ const fsGrid = `
 
 export type BlockFlags = {
 	opaque?: boolean,
+	light_emission?: number,
+	light_opacity?: number,
 	render_layer?: RenderLayer,
 	/** @deprecated Use render_layer: 'translucent'. */
 	semi_transparent?: boolean,
