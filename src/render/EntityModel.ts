@@ -6,6 +6,7 @@ import { Vector } from '../math/index.js'
 import { Mesh } from './Mesh.js'
 import { Quad } from './Quad.js'
 import type { TextureAtlasProvider } from './TextureAtlas.js'
+import type { RenderLayer } from './RenderLayer.js'
 
 type Vec3 = [number, number, number]
 type Vec2 = [number, number]
@@ -57,12 +58,17 @@ export class EntityModel {
 	constructor(
 		texture: Identifier | string,
 		private readonly geometry: EntityGeometryDefinition,
+		private readonly renderLayer: RenderLayer = 'cutout',
 	) {
 		this.texture = typeof texture === 'string' ? Identifier.parse(texture) : texture
 	}
 
 	public getTexture() {
 		return this.texture
+	}
+
+	public getRenderLayer() {
+		return this.renderLayer
 	}
 
 	public getMesh(resources: TextureAtlasProvider) {

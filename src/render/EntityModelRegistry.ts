@@ -2,12 +2,14 @@ import type { NbtCompound } from '../nbt/index.js'
 import type { Identifier } from '../core/index.js'
 import { EntityModel } from './EntityModel.js'
 import type { EntityGeometryDefinition, EntityModelProvider } from './EntityModel.js'
+import type { RenderLayer } from './RenderLayer.js'
 
 interface ModelOption {
 	geometry?: string
 	texture?: string
 	textures?: Record<string, string>
 	baby_texture?: string
+	render_layer?: RenderLayer
 }
 
 interface ModelAxis {
@@ -100,7 +102,7 @@ export class EntityModelRegistry implements EntityModelProvider {
 		if (!geometry || !texture) return null
 		const textureId = `minecraft:entity/${texture}`
 		if (!this.hasTexture(textureId)) return null
-		return new EntityModel(textureId, geometry)
+		return new EntityModel(textureId, geometry, resolved.render_layer ?? this.getRenderLayer(id.replace(/^minecraft:/, '')))
 	}
 
 	private selectAxis(name: string, axis: ModelAxis, nbt: NbtCompound) {
@@ -143,7 +145,7 @@ export class EntityModelRegistry implements EntityModelProvider {
 					cubes: [{ origin: [-8, -16, -8], size: [16, 16, 16], uv: [0, 0] }],
 				},
 			},
-		})
+		}, this.getRenderLayer(path))
 	}
 
 	private appearanceKey(nbt: NbtCompound) {
@@ -157,5 +159,9 @@ export class EntityModelRegistry implements EntityModelProvider {
 
 	private hasTexture(id: string) {
 		return this.textureEntries.some(([texture]) => texture === id)
+	}
+
+	private getRenderLayer(path: string): RenderLayer {
+		return path === 'slime' ? 'translucent' : 'cutout'
 	}
 }

@@ -41,4 +41,14 @@ describe('EntityModelRegistry', () => {
 		expect(registry.getEntityModel(Identifier.parse('minecraft:chest_minecart'), new NbtCompound())?.getTexture().path).toBe('entity/minecart/minecart')
 		expect(registry.getEntityModel(Identifier.parse('minecraft:new_entity'), new NbtCompound())).not.toBeNull()
 	})
+
+	it('classifies translucent entity models separately', () => {
+		const registry = new EntityModelRegistry({ models: {}, geometries: {} }, {
+			'minecraft:entity/slime/slime': { width: 64, height: 32 },
+			'minecraft:entity/armorstand/armorstand': { width: 64, height: 64 },
+		})
+
+		expect(registry.getEntityModel(Identifier.parse('minecraft:slime'), new NbtCompound())?.getRenderLayer()).toBe('translucent')
+		expect(registry.getEntityModel(Identifier.parse('minecraft:armor_stand'), new NbtCompound())?.getRenderLayer()).toBe('cutout')
+	})
 })

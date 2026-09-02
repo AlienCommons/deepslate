@@ -55,4 +55,10 @@ describe('EntityModel', () => {
 
 		expect(() => model.getMesh(textureProvider)).toThrow(/bone cycle/)
 	})
+
+	it('defaults to cutout rendering and accepts translucent models', () => {
+		const geometry = { bones: {} }
+		expect(new EntityModel('minecraft:entity/test', geometry).getRenderLayer()).toBe('cutout')
+		expect(new EntityModel('minecraft:entity/test', geometry, 'translucent').getRenderLayer()).toBe('translucent')
+	})
 })

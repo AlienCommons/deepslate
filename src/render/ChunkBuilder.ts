@@ -144,6 +144,10 @@ export class ChunkBuilder {
 		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))
 	}
 
+	public getLight(pos: vec3) {
+		return this.lightEngine.getLight(pos)
+	}
+
 	private getFluidState(block: BlockState): FluidState | undefined {
 		if (!block.is('water') && !block.is('lava')) return undefined
 		const parsedLevel = Number.parseInt(block.getProperty('level') ?? '0', 10)

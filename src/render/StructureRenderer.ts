@@ -119,7 +119,7 @@ export class StructureRenderer extends Renderer {
 		const chunkSize = options?.chunkSize ?? 16
 
 		this.chunkBuilder = new ChunkBuilder(gl, structure, resources, chunkSize)
-		this.entityMeshBuilder = new EntityMeshBuilder(gl, structure, resources)
+		this.entityMeshBuilder = new EntityMeshBuilder(gl, structure, resources, pos => this.chunkBuilder.getLight(pos))
 
 		if (options?.facesPerBuffer){
 			console.warn('[deepslate renderer warning]: facesPerBuffer option has been removed in favor of chunkSize')
@@ -168,6 +168,7 @@ export class StructureRenderer extends Renderer {
 
 	public updateStructureBuffers(chunkPositions?: vec3[]): void {
 		this.chunkBuilder.updateStructureBuffers(chunkPositions)
+		this.entityMeshBuilder.updateLighting()
 	}
 
 	private getGridMesh(): Mesh {
@@ -253,18 +254,17 @@ export class StructureRenderer extends Renderer {
 		this.prepareDraw(viewMatrix)
 
 		RENDER_LAYERS.forEach(layer => {
-			if (layer === 'translucent' && this.renderEntities) {
-				this.prepareRenderLayer('cutout')
-				this.gl.disable(this.gl.CULL_FACE)
-				this.entityMeshBuilder.getMeshes().forEach(mesh => {
-					this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
-				})
-				this.gl.enable(this.gl.CULL_FACE)
-			}
 			this.prepareRenderLayer(layer)
 			this.chunkBuilder.getMeshes(layer, viewMatrix).forEach(mesh => {
 				this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
 			})
+			if (this.renderEntities) {
+				this.gl.disable(this.gl.CULL_FACE)
+				this.entityMeshBuilder.getMeshes(layer).forEach(mesh => {
+					this.drawMesh(mesh, { pos: true, color: true, texture: true, normal: true, light: true })
+				})
+				this.gl.enable(this.gl.CULL_FACE)
+			}
 		})
 		this.finishRenderLayers()
 	}
