@@ -157,9 +157,11 @@ export class ChunkBuilder {
 			sample: (dx, dy, dz): FluidCell => {
 				const block = this.structure.getBlock([pos[0] + dx, pos[1] + dy, pos[2] + dz])
 				if (!block) return {}
+				const flags = this.resources.getBlockFlags(block.state.getName())
 				return {
 					fluid: this.getContainedFluidState(block.state),
-					solid: this.resources.getBlockFlags(block.state.getName())?.opaque ?? false,
+					solid: flags?.solid ?? flags?.opaque ?? false,
+					occludes: flags?.opaque ?? false,
 				}
 			},
 		}

@@ -81,9 +81,12 @@ function createValidationStructure() {
 	}
 
 	for (let x = 1; x <= 8; x += 1) {
-		structure.addBlock([x, 4, 10], 'minecraft:smooth_stone')
+		for (let z = 9; z <= 11; z += 1) structure.addBlock([x, 4, z], 'minecraft:smooth_stone')
+		structure.addBlock([x, 5, 9], 'minecraft:glass')
+		structure.addBlock([x, 5, 11], 'minecraft:glass')
 		structure.addBlock([x, 5, 10], 'minecraft:water', { level: String(Math.min(7, x - 1)) })
 	}
+	structure.addBlock([0, 5, 10], 'minecraft:glass')
 
 	// A roofed alcove makes skylight falloff, smooth corner lighting, ambient
 	// occlusion, and local block light easy to inspect in one view.
@@ -183,7 +186,7 @@ Promise.all([
 		getPixelSize: () => textureAtlas.getPixelSize(),
 		getBlockFlags(id) {
 			const name = id.path
-			if (name === 'glass') return { opaque: false, self_culling: true, render_layer: 'translucent' }
+			if (name === 'glass') return { opaque: false, solid: true, self_culling: true, render_layer: 'translucent' }
 			if (name === 'lava') return { opaque: false, render_layer: 'emissive' }
 			if (name === 'water') return { opaque: false, light_opacity: 1, self_culling: true, render_layer: 'translucent' }
 			if (name === 'glowstone') return { opaque: true }

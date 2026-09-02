@@ -64,6 +64,8 @@ const fsGrid = `
 
 export type BlockFlags = {
 	opaque?: boolean,
+	/** Matches Minecraft BlockState#isSolid for fluid-height sampling. */
+	solid?: boolean,
 	light_emission?: number,
 	light_opacity?: number,
 	render_layer?: RenderLayer,

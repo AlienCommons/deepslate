@@ -62,6 +62,27 @@ describe('fluid surface geometry', () => {
 		expect(getFluidCornerHeights(renderContext).northWest).toBeGreaterThan(getFluidCornerHeights(renderContext).northEast)
 	})
 
+	it('uses transparent solid blocks for height without hiding the fluid side', () => {
+		const fluid: FluidState = { type: 'water', level: 0 }
+		const glass = { solid: true, occludes: false }
+		const mesh = getFluidMesh(context(fluid, {
+			'0,-1,0': { fluid },
+			'-1,0,0': glass,
+			'1,0,0': glass,
+			'0,0,-1': glass,
+			'0,0,1': glass,
+		}), atlas)
+
+		const heights = getFluidCornerHeights(context(fluid, {
+			'-1,0,0': glass,
+			'1,0,0': glass,
+			'0,0,-1': glass,
+			'0,0,1': glass,
+		}))
+		for (const height of Object.values(heights)) expect(height).toBeCloseTo(8 / 9)
+		expect(mesh.quads).toHaveLength(5)
+	})
+
 	it('culls internal faces shared with matching fluid', () => {
 		const fluid: FluidState = { type: 'water', level: 0 }
 		const mesh = getFluidMesh(context(fluid, {

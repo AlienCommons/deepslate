@@ -20,6 +20,7 @@ export type FluidState = {
 export type FluidCell = {
 	fluid?: FluidState,
 	solid?: boolean,
+	occludes?: boolean,
 }
 
 export type FluidRenderContext = {
@@ -230,7 +231,8 @@ function appendFluidVolume(
 	for (const side of sides) {
 		if (!side.outer) continue
 		const neighbor = context.sample(side.dx, 0, side.dz)
-		if (!neighbor.solid && !isSameFluid(neighbor, type)) {
+		const occludes = neighbor.occludes ?? neighbor.solid ?? false
+		if (!occludes && !isSameFluid(neighbor, type)) {
 			mesh.quads.push(fluidQuad(
 				side.points.map(point => [...point]) as [number, number, number][],
 				flowUv,
