@@ -2,7 +2,7 @@
 
 A fork of [misode/deepslate](https://github.com/misode/deepslate) focused on accurate browser-based rendering of Minecraft structures and schematics.
 
-This fork is being developed for the AlienCommons schematic previewer. It retains Deepslate's NBT, structure, world-generation, and rendering APIs while improving the rendering pipeline.
+This fork is being developed for the AlienCommons schematic previewer. It retains Deepslate's NBT, structure, and rendering APIs while improving the rendering pipeline.
 
 ## Status
 
