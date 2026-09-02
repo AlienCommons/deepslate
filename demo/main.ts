@@ -88,7 +88,7 @@ function createValidationStructure() {
 	// occlusion, and local block light easy to inspect in one view.
 	for (let x = 10; x <= 18; x += 1) {
 		for (let z = 9; z <= 18; z += 1) structure.addBlock([x, 6, z], 'minecraft:stone')
-		for (let y = 1; y <= 5; y += 1) structure.addBlock([x, y, 18], 'minecraft:stone')
+		for (let y = 1; y <= 5; y += 1) structure.addBlock([x, y, 9], 'minecraft:stone')
 	}
 	for (let y = 1; y <= 5; y += 1) {
 		for (let z = 9; z <= 18; z += 1) structure.addBlock([18, y, z], 'minecraft:stone')
