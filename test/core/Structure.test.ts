@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BlockState, Identifier, Structure } from '../../src/core/index.js'
 import { NbtCompound, NbtInt, NbtList, NbtString } from '../../src/nbt/index.js'
+import { createStructureSnapshot, structureFromSnapshot } from '../../src/core/StructureSnapshot.js'
 
 describe('Structure', () => {
 	it('getSize', () => {
@@ -58,6 +59,19 @@ describe('Structure', () => {
 
 		expect(structure.getBlocksInBox([0, 0, 0], [16, 2, 16]).map(block => block.pos)).toEqual([[1, 0, 1]])
 		expect(structure.getBlocksInBox([16, 0, 16], [32, 2, 32]).map(block => block.pos)).toEqual([[17, 0, 17]])
+	})
+
+	it('round-trips through a structured-clone-safe snapshot', () => {
+		const structure = new Structure([2, 1, 1])
+			.addBlock([0, 0, 0], 'stone')
+			.addBlock([1, 0, 0], 'oak_sign', { rotation: '2' }, new NbtCompound().set('Text', new NbtString('test')))
+			.addEntity([0.5, 0, 0.5], 'armor_stand', new NbtCompound().set('id', new NbtString('minecraft:armor_stand')), [90, 0])
+
+		const restored = structureFromSnapshot(structuredClone(createStructureSnapshot(structure)))
+
+		expect(restored.getBlocks().map(block => block.state.toString())).toEqual(structure.getBlocks().map(block => block.state.toString()))
+		expect(restored.getBlock([1, 0, 0])?.nbt?.getString('Text')).toBe('test')
+		expect(restored.getEntities()[0].rotation).toEqual([90, 0])
 	})
 
 	it('fromNbt (empty)', () => {

@@ -1,6 +1,8 @@
 import { mat4 } from 'gl-matrix'
 import type { Resources, TextureAnimation, TextureAnimationMetadata } from '../src/index.js'
 import { BlockDefinition, BlockModel, EntityModelRegistry, getTextureAnimationTimeline, Identifier, NbtCompound, NbtString, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
+import { loadLitematicInWorker } from '../src/core/LitematicWorkerClient.js'
+import LitematicWorker from '../src/core/LitematicWorker.ts?worker'
 import { getSpectatorLook, getSpectatorMovement } from './SpectatorMovement.js'
 
 const MINECRAFT_VERSION = '26.2'
@@ -248,7 +250,10 @@ Promise.all([
 		if (!file) return
 		fileStatus.textContent = `Opening ${file.name}…`
 		try {
-			const structure = Structure.fromLitematic(new Uint8Array(await file.arrayBuffer()))
+			const structure = await loadLitematicInWorker(
+				() => new LitematicWorker(),
+				new Uint8Array(await file.arrayBuffer()),
+			)
 			renderer.setStructure(structure)
 			controls.reset(getPreviewPosition(structure))
 			const [x, y, z] = structure.getSize()
