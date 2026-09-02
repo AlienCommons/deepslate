@@ -7,6 +7,7 @@ export type BakedVertexLight = [sky: number, block: number, ambientOcclusion: nu
 export interface VertexLightSampler {
 	getLight(pos: vec3): LightSample
 	getOpacity(pos: vec3): number
+	getEmission?(pos: vec3): number
 }
 
 const AO_BRIGHTNESS = [1, 0.8, 0.6, 0.5] as const
@@ -34,18 +35,25 @@ export function sampleVertexLight(
 	const sideA = offset(face, sideAxes[0], sideDirections[0])
 	const sideB = offset(face, sideAxes[1], sideDirections[1])
 	const corner = offset(sideA, sideAxes[1], sideDirections[1])
-	const samples = [face, sideA, sideB, corner].map(samplePos => sampler.getLight(samplePos))
 
 	const sideAOA = sampler.getOpacity(sideA) >= 15
 	const sideAOB = sampler.getOpacity(sideB) >= 15
 	const cornerAO = sampler.getOpacity(corner) >= 15
+	const samplePositions = [
+		face,
+		...(!sideAOA ? [sideA] : []),
+		...(!sideAOB ? [sideB] : []),
+		...(!cornerAO && !(sideAOA && sideAOB) ? [corner] : []),
+	]
+	const samples = samplePositions.map(samplePos => sampler.getLight(samplePos))
+	const emission = sampler.getEmission?.(block) ?? 0
 	const occlusion = sideAOA && sideAOB
 		? 3
 		: Number(sideAOA) + Number(sideAOB) + Number(cornerAO)
 
 	return [
 		average(samples.map(sample => sample.sky)) / 15,
-		average(samples.map(sample => sample.block)) / 15,
+		Math.max(emission, average(samples.map(sample => sample.block))) / 15,
 		AO_BRIGHTNESS[occlusion],
 	]
 }

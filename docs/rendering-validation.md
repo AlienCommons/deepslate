@@ -29,6 +29,17 @@ The same categories are present in the demo validation scene. The demo uses Mine
 
 The comparison confirmed that the overhaul fixes the original failure modes targeted by this fork: flat full-block liquids, internal fluid faces, water overlapping partial blocks, unstable glass/water depth ordering, static fluid textures, and dim lava.
 
+## Minecraft 26.2 lighting cross-check
+
+The baked-light implementation was also checked against the installed, unobfuscated Minecraft Java 26.2 client rather than tuned only by eye:
+
+- `LightCoordsUtil.getLightCoords` raises a rendered block's block-light coordinate to at least its own emission level. Deepslate does the same, so glowstone is rendered at level 15 instead of inheriting level 14 from adjacent air.
+- `CardinalLighting.DEFAULT` uses `1.0` for up, `0.5` for down, `0.8` for north/south, and `0.6` for west/east. The vertex shader uses those exact directional factors.
+- Minecraft's `lightmap.fsh` applies `level / (4 - 3 * level)` separately to sky and block light, adds the two colored channels, and clamps the result. Deepslate now follows that composition instead of taking the brighter channel only.
+- The stable block-light factor is `1.4`, and the default block-light tint is `#FFD88C`. Deepslate omits only Minecraft's tiny random light flicker so static schematic previews do not shimmer.
+
+Visual checks against Minecraft captures with smooth lighting enabled cover exposed faces, floor/wall junctions, enclosed corners, and roofed daylight. Glowstone and lava emission behavior is additionally checked against the client light-coordinate and lightmap implementations. Opaque neighbors affect ambient occlusion but no longer contribute a second zero-light penalty, which removes the former black bands along walls.
+
 ## Automated coverage
 
 The test suite covers:

@@ -37,6 +37,7 @@ describe('baked light propagation', () => {
 		const light = new LightEngine(structure, getProperties)
 
 		expect(light.getBlockLight([1, 1, 1])).toBe(15)
+		expect(light.getEmission([1, 1, 1])).toBe(15)
 		expect(light.getBlockLight([2, 1, 1])).toBe(14)
 		expect(light.getBlockLight([3, 1, 1])).toBe(13)
 	})

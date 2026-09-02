@@ -28,7 +28,11 @@ const vsSource = `
     vTexCoord = texCoord;
 	vTexLimit = texLimit;
     vTintColor = vertColor;
-    vDirectionalLight = normal.y * 0.2 + abs(normal.z) * 0.1 + 0.8;
+    // Minecraft 26.2 CardinalLighting.DEFAULT: up 1.0, down 0.5,
+    // north/south 0.8, west/east 0.6.
+    vDirectionalLight = normal.y > 0.5
+      ? 1.0
+      : (normal.y < -0.5 ? 0.5 : (abs(normal.x) > 0.5 ? 0.6 : 0.8));
     vBakedLight = bakedLight;
   }
 `
@@ -45,16 +49,34 @@ const fsSource = `
   uniform highp float pixelSize;
   uniform highp float emissive;
 
+	float getBrightness(float level) {
+		return level / (4.0 - 3.0 * level);
+	}
+
+	float parabolicMixFactor(float level) {
+		float centered = 2.0 * level - 1.0;
+		return centered * centered;
+	}
+
   void main(void) {
 		vec4 texColor = texture2D(sampler, clamp(vTexCoord,
 			vTexLimit.xy + vec2(0.5, 0.5) * pixelSize,
 			vTexLimit.zw - vec2(0.5, 0.5) * pixelSize
 		));
 		if(texColor.a < 0.01) discard;
-		float lightLevel = max(vBakedLight.x, vBakedLight.y);
-		float minecraftLight = lightLevel / (4.0 - 3.0 * lightLevel);
-		float baked = mix(0.035, 1.0, minecraftLight) * vBakedLight.z;
-		float light = mix(baked * vDirectionalLight, 1.0, emissive);
+		// Stable daytime form of Minecraft 26.2's lightmap.fsh. The client adds
+		// a small random flicker to its 1.4 block-light factor; previews do not.
+		float skyBrightness = getBrightness(vBakedLight.x);
+		float blockBrightness = getBrightness(vBakedLight.y);
+		vec3 blockTint = vec3(1.0, 216.0 / 255.0, 140.0 / 255.0);
+		vec3 blockLightColor = mix(blockTint, vec3(1.0), 0.9 * parabolicMixFactor(vBakedLight.y));
+		vec3 lightmap = clamp(
+			vec3(skyBrightness) + blockLightColor * blockBrightness * 1.4,
+			0.0,
+			1.0
+		);
+		vec3 shadedLight = lightmap * vBakedLight.z * vDirectionalLight;
+		vec3 light = mix(shadedLight, vec3(1.0), emissive);
 		gl_FragColor = vec4(texColor.xyz * vTintColor * light, texColor.a);
   }
 `

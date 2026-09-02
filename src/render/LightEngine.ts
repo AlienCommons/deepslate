@@ -111,6 +111,12 @@ export class LightEngine {
 		return this.cells.get(this.index(x, y, z))?.opacity ?? 0
 	}
 
+	public getEmission(pos: vec3) {
+		const [x, y, z] = floorPos(pos)
+		if (!this.isInside(x, y, z)) return 0
+		return this.cells.get(this.index(x, y, z))?.emission ?? 0
+	}
+
 	private buildDenseSkyLight() {
 		const skyLight = this.skyLight!
 		for (let x = 0; x < this.size[0]; x += 1) {
