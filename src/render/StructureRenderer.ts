@@ -6,6 +6,7 @@ import type { Color } from '../index.js'
 import type { BlockDefinitionProvider } from './BlockDefinition.js'
 import type { BlockModelProvider } from './BlockModel.js'
 import { ChunkBuilder } from './ChunkBuilder.js'
+import type { AsyncChunkBuildOptions } from './ChunkBuilder.js'
 import { Mesh } from './Mesh.js'
 import { RENDER_LAYERS } from './RenderLayer.js'
 import type { RenderLayer } from './RenderLayer.js'
@@ -145,6 +146,18 @@ export class StructureRenderer extends Renderer {
 		this.entityMeshBuilder.setStructure(structure)
 		this.gridMesh = this.getGridMesh()
 		this.invisibleBlocksMesh = this.getInvisibleBlocksMesh()
+	}
+
+	public async setStructureAsync(structure: StructureProvider, options?: AsyncChunkBuildOptions) {
+		this.gridMesh.dispose(this.gl)
+		this.invisibleBlocksMesh.dispose(this.gl)
+		this.structure = structure
+		this.chunkBuilder.dispose()
+		this.chunkBuilder.setStructureWithoutBuilding(structure)
+		this.gridMesh = this.getGridMesh()
+		this.invisibleBlocksMesh = this.getInvisibleBlocksMesh()
+		await this.chunkBuilder.updateStructureBuffersAsync({ ...options, rebuildLighting: false })
+		this.entityMeshBuilder.setStructure(structure)
 	}
 
 	public setEntityRenderingEnabled(enabled: boolean) {

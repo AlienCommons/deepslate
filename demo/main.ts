@@ -254,7 +254,7 @@ Promise.all([
 				() => new LitematicWorker(),
 				new Uint8Array(await file.arrayBuffer()),
 			)
-			renderer.setStructure(structure)
+			await renderer.setStructureAsync(structure)
 			controls.reset(getPreviewPosition(structure))
 			const [x, y, z] = structure.getSize()
 			const entityCount = structure.getEntities().length

@@ -19,6 +19,13 @@ export interface RenderMeshEntry {
 	center: vec3
 }
 
+export interface AsyncChunkBuildOptions {
+	chunksPerYield?: number
+	rebuildLighting?: boolean
+	signal?: AbortSignal
+	yieldTask?: () => Promise<void>
+}
+
 export class ChunkBuilder {
 	private chunks: ChunkMeshes[][][] = []
 	private readonly chunkCenters = new WeakMap<ChunkMeshes, vec3>()
@@ -33,13 +40,17 @@ export class ChunkBuilder {
 	) {
 		this.chunkSize = typeof chunkSize === 'number' ? [chunkSize, chunkSize, chunkSize] : chunkSize
 		this.lightEngine = this.createLightEngine()
-		this.updateStructureBuffers(undefined, false)
+		this.updateStructureBuffersInternal(undefined, false, true)
 	}
 
 	public setStructure(structure: StructureProvider) {
+		this.setStructureWithoutBuilding(structure)
+		this.updateStructureBuffersInternal(undefined, false, true)
+	}
+
+	public setStructureWithoutBuilding(structure: StructureProvider) {
 		this.structure = structure
 		this.lightEngine = this.createLightEngine()
-		this.updateStructureBuffers(undefined, false)
 	}
 
 	public dispose() {
@@ -49,7 +60,31 @@ export class ChunkBuilder {
 		this.chunks = []
 	}
 
-	public updateStructureBuffers(chunkPositions?: vec3[], rebuildLighting = true): void {
+	public updateStructureBuffers(chunkPositions?: vec3[]): void {
+		this.updateStructureBuffersInternal(chunkPositions, true, true)
+	}
+
+	public async updateStructureBuffersAsync(options: AsyncChunkBuildOptions = {}) {
+		const chunksPerYield = Math.max(1, Math.floor(options.chunksPerYield ?? 4))
+		const yieldTask = options.yieldTask ?? (() => new Promise<void>(resolve => setTimeout(resolve, 0)))
+		this.throwIfAborted(options.signal)
+		if (options.rebuildLighting ?? true) this.lightEngine.rebuild()
+		this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
+			RENDER_LAYERS.forEach(layer => {
+				chunk[layer].clear().rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true, light: true })
+			})
+		})))
+
+		const chunkPositions = this.getOccupiedChunkPositions()
+		for (let index = 0; index < chunkPositions.length; index += chunksPerYield) {
+			this.throwIfAborted(options.signal)
+			this.updateStructureBuffersInternal(chunkPositions.slice(index, index + chunksPerYield), false, false)
+			if (index + chunksPerYield < chunkPositions.length) await yieldTask()
+		}
+		this.throwIfAborted(options.signal)
+	}
+
+	private updateStructureBuffersInternal(chunkPositions: vec3[] | undefined, rebuildLighting: boolean, refreshUnchangedLighting: boolean): void {
 		if (!this.structure)
 			return
 		if (rebuildLighting) this.lightEngine.rebuild()
@@ -129,7 +164,7 @@ export class ChunkBuilder {
 				const chunk = this.getChunk(chunkPos)
 				RENDER_LAYERS.forEach(layer => chunk[layer].rebuild(this.gl, { pos: true, color: true, texture: true, normal: true, blockPos: true, light: true }))
 			})
-			this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
+			if (refreshUnchangedLighting) this.chunks.forEach(x => x.forEach(y => y.forEach(chunk => {
 				if (rebuiltChunks.has(chunk)) return
 				RENDER_LAYERS.forEach(layer => {
 					this.updateMeshLighting(chunk[layer])
@@ -258,6 +293,23 @@ export class ChunkBuilder {
 			const chunkPos = block.pos.map((value, axis) => Math.floor(value / this.chunkSize[axis]))
 			return uniqueChunks.has(key(chunkPos))
 		})
+	}
+
+	private getOccupiedChunkPositions(): vec3[] {
+		const chunks = new Map<string, vec3>()
+		this.structure.getBlocks().forEach(block => {
+			const pos: vec3 = [
+				Math.floor(block.pos[0] / this.chunkSize[0]),
+				Math.floor(block.pos[1] / this.chunkSize[1]),
+				Math.floor(block.pos[2] / this.chunkSize[2]),
+			]
+			chunks.set(`${pos[0]},${pos[1]},${pos[2]}`, pos)
+		})
+		return [...chunks.values()]
+	}
+
+	private throwIfAborted(signal?: AbortSignal) {
+		if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted', 'AbortError')
 	}
 
 	private getChunk(chunkPos: vec3): ChunkMeshes {
