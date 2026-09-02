@@ -1,8 +1,9 @@
-import type { mat4 } from 'gl-matrix'
+import type { mat4, vec3 } from 'gl-matrix'
 import { Vector } from '../math/Vector.js'
 import type { Color } from '../util/Color.js'
 import { Line } from './Line.js'
 import type { Quad } from './Quad.js'
+import { sortBackToFront } from './RenderOrder.js'
 import { Vertex } from './Vertex.js'
 
 export class Mesh {
@@ -16,6 +17,8 @@ export class Mesh {
 
 	public linePosBuffer: WebGLBuffer | undefined
 	public lineColorBuffer: WebGLBuffer | undefined
+	private quadCenters: vec3[] | undefined
+	private sortedView: Float32Array | undefined
 
 	constructor(
 		public quads: Quad[] = [],
@@ -25,6 +28,7 @@ export class Mesh {
 	public clear() {
 		this.quads = []
 		this.lines = []
+		this.invalidateQuadOrder()
 		return this	
 	}
 
@@ -47,6 +51,7 @@ export class Mesh {
 	public merge(other: Mesh) {
 		this.quads = this.quads.concat(other.quads)
 		this.lines = this.lines.concat(other.lines)
+		this.invalidateQuadOrder()
 		return this
 	}
 
@@ -82,6 +87,28 @@ export class Mesh {
 		for (const quad of this.quads) {
 			quad.transform(transformation)
 		}
+		this.invalidateQuadOrder()
+		return this
+	}
+
+	public sortQuadsBackToFront(gl: WebGLRenderingContext, viewMatrix: mat4) {
+		if (this.quads.length <= 1 || !this.indexBuffer || this.hasSortedView(viewMatrix)) return this
+
+		this.quadCenters ??= this.quads.map(quad => {
+			const vertices = quad.vertices()
+			return vertices.reduce<vec3>((center, vertex) => [
+				center[0] + vertex.pos.x / vertices.length,
+				center[1] + vertex.pos.y / vertices.length,
+				center[2] + vertex.pos.z / vertices.length,
+			], [0, 0, 0])
+		})
+		const order = sortBackToFront(
+			this.quads.map((_, index) => index),
+			index => this.quadCenters![index],
+			viewMatrix,
+		)
+		this.rebuildIndexBuffer(gl, order)
+		this.sortedView = new Float32Array(viewMatrix)
 		return this
 	}
 
@@ -139,9 +166,41 @@ export class Mesh {
 			if (this.indexBuffer) gl.deleteBuffer(this.indexBuffer)
 			this.indexBuffer = undefined
 		} else {
-			this.indexBuffer = rebuildBuffer(this.indexBuffer, gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.quads.flatMap((_, i) => [4*i, 4*i + 1, 4*i + 2, i*4, 4*i + 2, 4*i + 3], true)))
+			this.rebuildIndexBuffer(gl)
 		}
+		this.quadCenters = undefined
+		this.sortedView = undefined
 
 		return this
+	}
+
+	private rebuildIndexBuffer(gl: WebGLRenderingContext, order = this.quads.map((_, index) => index)) {
+		this.indexBuffer ??= gl.createBuffer() ?? undefined
+		if (!this.indexBuffer) throw new Error('Cannot create new buffer')
+
+		const indices = new Uint16Array(order.length * 6)
+		for (let outputIndex = 0; outputIndex < order.length; outputIndex += 1) {
+			const vertexIndex = order[outputIndex] * 4
+			indices.set([
+				vertexIndex,
+				vertexIndex + 1,
+				vertexIndex + 2,
+				vertexIndex,
+				vertexIndex + 2,
+				vertexIndex + 3,
+			], outputIndex * 6)
+		}
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer)
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
+	}
+
+	private hasSortedView(viewMatrix: mat4) {
+		return this.sortedView !== undefined
+			&& this.sortedView.every((value, index) => value === viewMatrix[index])
+	}
+
+	private invalidateQuadOrder() {
+		this.quadCenters = undefined
+		this.sortedView = undefined
 	}
 }

@@ -118,6 +118,7 @@ export class ChunkBuilder {
 		let chunks = this.chunks.flatMap(x => x.flatMap(y => y.flatMap(chunk => chunk ?? [])))
 		if (layer === 'translucent' && viewMatrix !== undefined) {
 			chunks = sortBackToFront(chunks, chunk => this.chunkCenters.get(chunk) ?? [0, 0, 0], viewMatrix)
+			chunks.forEach(chunk => chunk.translucent.sortQuadsBackToFront(this.gl, viewMatrix))
 		}
 		const layers = layer === undefined ? RENDER_LAYERS : [layer]
 		return layers.flatMap(currentLayer => chunks.flatMap(chunk => chunk[currentLayer].isEmpty() ? [] : chunk[currentLayer]))

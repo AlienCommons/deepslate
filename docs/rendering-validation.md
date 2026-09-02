@@ -19,7 +19,7 @@ The same categories are present in the demo validation scene. The demo uses Mine
 | --- | --- | --- |
 | Water surface | Source blocks sit below the full-block ceiling; flowing edges use different corner heights. | Neighboring fluid states determine exposed faces and averaged corner heights. Internal faces between compatible fluids are culled. |
 | Flow direction | Flowing water rotates its surface texture with the direction of travel. | Flow vectors rotate the flowing-water UVs; still surfaces use the still-water texture. |
-| Glass and water | Glass remains readable in front of water without writing transparent fragments into the depth buffer. | Translucent chunks are rendered back-to-front with depth writes disabled, preserving the glass/water relationship. |
+| Glass and water | Glass remains readable in front of water without writing transparent fragments into the depth buffer. | Translucent chunks and their contained quads are rendered back-to-front with depth writes disabled, preserving the glass/water relationship as the camera moves. |
 | Waterlogged blocks | Water occupies only the unfilled portion of slabs, stairs, and trapdoors. | Slabs, stairs, and trapdoors use shape-aware clipped fluid volumes. Other waterlogged shapes retain a conservative approximation. |
 | Lava and light-emitting blocks | Lava textures animate and remain visually bright. | Texture animation metadata updates the atlas at runtime, and emissive geometry bypasses directional darkening. |
 | Cutout blocks | Transparent texels are discarded rather than blended. | Cutout geometry uses alpha testing in its own render pass. |
@@ -45,7 +45,7 @@ The following remain outside this renderer's current accuracy target:
 
 - biome-dependent water tint;
 - Minecraft's complete light engine, ambient occlusion, shadows, fog, and post-processing;
-- exact per-quad ordering between intersecting translucent surfaces inside one chunk;
+- exact global ordering between intersecting translucent surfaces across chunk boundaries;
 - exact water clipping for every possible waterlogged block model;
 - byte-for-byte reproduction of Minecraft's internal flowing-fluid UV calculation.
 
