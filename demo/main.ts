@@ -1,6 +1,6 @@
 import { mat4 } from 'gl-matrix'
 import type { Resources, TextureAnimation, TextureAnimationMetadata } from '../src/index.js'
-import { BlockDefinition, BlockModel, EntityModelRegistry, getTextureAnimationTimeline, Identifier, NbtCompound, NbtString, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
+import { BlockDefinition, BlockModel, createTextureMipmaps, EntityModelRegistry, getTextureAnimationTimeline, Identifier, NbtCompound, NbtString, Structure, StructureRenderer, TextureAtlas, upperPowerOfTwo } from '../src/index.js'
 import { loadLitematicInWorker } from '../src/core/LitematicWorkerClient.js'
 import LitematicWorker from '../src/core/LitematicWorker.ts?worker'
 import { getSpectatorLook, getSpectatorMovement } from './SpectatorMovement.js'
@@ -150,10 +150,10 @@ function getAnimations(atlas: CanvasRenderingContext2D, uvMap: Record<string, [n
 		const [x, y, width, height] = uvMap[id] ?? []
 		if (!width || height <= width) return []
 		const timeline = getTextureAnimationTimeline(Math.floor(height / width), animationMetadata)
-		const frames = timeline.map(step => ({
-			image: atlas.getImageData(x, y + step.index * width, width, width),
-			durationMs: step.durationMs,
-		}))
+		const frames = timeline.map(step => {
+			const image = atlas.getImageData(x, y + step.index * width, width, width)
+			return { image, mipmaps: createTextureMipmaps(image), durationMs: step.durationMs }
+		})
 		return [{ x, y, frames }]
 	})
 }

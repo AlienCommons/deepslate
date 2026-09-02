@@ -13,6 +13,7 @@ export type TextureAnimationMetadata = {
 
 export type TextureAnimationFrame = {
 	image: ImageData,
+	mipmaps?: ImageData[],
 	durationMs: number,
 }
 
@@ -46,6 +47,34 @@ export function getTextureAnimationFrame(animation: TextureAnimation, elapsedMs:
 		if (time < 0) return index
 	}
 	return animation.frames.length - 1
+}
+
+export function createTextureMipmaps(image: ImageData): ImageData[] {
+	const mipmaps: ImageData[] = []
+	const ImageDataConstructor = image.constructor as { new(data: Uint8ClampedArray, width: number, height: number): ImageData }
+	let source = image
+	while (source.width > 1 || source.height > 1) {
+		const width = Math.max(1, Math.floor(source.width / 2))
+		const height = Math.max(1, Math.floor(source.height / 2))
+		const data = new Uint8ClampedArray(width * height * 4)
+		for (let y = 0; y < height; y += 1) {
+			for (let x = 0; x < width; x += 1) {
+				const samples = [
+					[x * 2, y * 2],
+					[Math.min(x * 2 + 1, source.width - 1), y * 2],
+					[x * 2, Math.min(y * 2 + 1, source.height - 1)],
+					[Math.min(x * 2 + 1, source.width - 1), Math.min(y * 2 + 1, source.height - 1)],
+				]
+				for (let channel = 0; channel < 4; channel += 1) {
+					const total = samples.reduce((sum, [sx, sy]) => sum + source.data[(sy * source.width + sx) * 4 + channel], 0)
+					data[(y * width + x) * 4 + channel] = Math.round(total / samples.length)
+				}
+			}
+		}
+		source = new ImageDataConstructor(data, width, height)
+		mipmaps.push(source)
+	}
+	return mipmaps
 }
 
 export interface TextureAtlasProvider {
@@ -118,7 +147,8 @@ export class TextureAtlas implements TextureAtlasProvider {
 				const frames = getTextureAnimationTimeline(frameCount, metadata[id]).map(step => {
 					frameContext.clearRect(0, 0, 16, 16)
 					frameContext.drawImage(img, 0, step.index * frameSize, img.width, frameSize, 0, 0, 16, 16)
-					return { image: frameContext.getImageData(0, 0, 16, 16), durationMs: step.durationMs }
+					const image = frameContext.getImageData(0, 0, 16, 16)
+					return { image, mipmaps: createTextureMipmaps(image), durationMs: step.durationMs }
 				})
 				animations.push({ x: 16 * u, y: 16 * v, frames })
 			}

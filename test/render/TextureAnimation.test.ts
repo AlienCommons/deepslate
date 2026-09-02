@@ -1,10 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { getTextureAnimationFrame, getTextureAnimationTimeline } from '../../src/render/TextureAtlas.js'
+import { createTextureMipmaps, getTextureAnimationFrame, getTextureAnimationTimeline } from '../../src/render/TextureAtlas.js'
 import type { TextureAnimation } from '../../src/render/TextureAtlas.js'
 
 const image = {} as ImageData
 
 describe('texture animation timing', () => {
+	it('precomputes sprite-local mipmap levels', () => {
+		class TestImageData {
+			constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
+		}
+		const source = new TestImageData(new Uint8ClampedArray([
+			255, 0, 0, 255, 0, 255, 0, 255,
+			0, 0, 255, 255, 255, 255, 255, 255,
+		]), 2, 2) as unknown as ImageData
+
+		const mipmaps = createTextureMipmaps(source)
+
+		expect(mipmaps).toHaveLength(1)
+		expect([mipmaps[0].width, mipmaps[0].height]).toEqual([1, 1])
+		expect(Array.from(mipmaps[0].data)).toEqual([128, 128, 128, 255])
+	})
+
 	it('uses Minecraft default frame timing and explicit frame sequences', () => {
 		expect(getTextureAnimationTimeline(3)).toEqual([
 			{ index: 0, durationMs: 50 },

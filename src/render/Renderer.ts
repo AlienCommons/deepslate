@@ -160,7 +160,7 @@ export class Renderer {
 	}
 
 	protected updateTextureAnimations(texture: WebGLTexture, animations: TextureAnimation[], elapsedMs: number) {
-		let changed = false
+		let rebuildMipmaps = false
 		this.gl.bindTexture(this.gl.TEXTURE_2D, texture)
 		for (const animation of animations) {
 			const frameIndex = getTextureAnimationFrame(animation, elapsedMs)
@@ -175,10 +175,26 @@ export class Renderer {
 				this.gl.UNSIGNED_BYTE,
 				frame.image,
 			)
+			if (frame.mipmaps) {
+				frame.mipmaps.forEach((mipmap, index) => {
+					const level = index + 1
+					const scale = 2 ** level
+					this.gl.texSubImage2D(
+						this.gl.TEXTURE_2D,
+						level,
+						Math.floor(animation.x / scale),
+						Math.floor(animation.y / scale),
+						this.gl.RGBA,
+						this.gl.UNSIGNED_BYTE,
+						mipmap,
+					)
+				})
+			} else {
+				rebuildMipmaps = true
+			}
 			this.animationFrames.set(animation, frameIndex)
-			changed = true
 		}
-		if (changed) this.gl.generateMipmap(this.gl.TEXTURE_2D)
+		if (rebuildMipmaps) this.gl.generateMipmap(this.gl.TEXTURE_2D)
 	}
 
 	protected prepareDraw(viewMatrix: mat4) {
