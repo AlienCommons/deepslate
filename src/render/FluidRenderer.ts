@@ -64,12 +64,24 @@ function getSampleHeight(context: FluidRenderContext, dx: number, dz: number) {
 	return cell.solid ? -1 : 0
 }
 
-function averageCornerHeight(context: FluidRenderContext, offsets: [number, number][]) {
+function averageCornerHeight(
+	context: FluidRenderContext,
+	sideA: [number, number],
+	sideB: [number, number],
+	diagonal: [number, number],
+) {
+	const sideAHeight = getSampleHeight(context, ...sideA)
+	const sideBHeight = getSampleHeight(context, ...sideB)
+	if (sideAHeight >= 1 || sideBHeight >= 1) return 1
+
+	const heights = [getSampleHeight(context, 0, 0), sideAHeight, sideBHeight]
+	if (sideAHeight > 0 || sideBHeight > 0) {
+		heights.push(getSampleHeight(context, ...diagonal))
+	}
+
 	let total = 0
 	let weight = 0
-	for (const [dx, dz] of offsets) {
-		const height = getSampleHeight(context, dx, dz)
-		if (height >= 1) return 1
+	for (const height of heights) {
 		if (height < 0) continue
 		const sampleWeight = height >= 0.8 ? 10 : 1
 		total += height * sampleWeight
@@ -79,11 +91,14 @@ function averageCornerHeight(context: FluidRenderContext, offsets: [number, numb
 }
 
 export function getFluidCornerHeights(context: FluidRenderContext): FluidCornerHeights {
+	if (getSampleHeight(context, 0, 0) >= 1) {
+		return { northWest: 1, northEast: 1, southEast: 1, southWest: 1 }
+	}
 	return {
-		northWest: averageCornerHeight(context, [[0, 0], [-1, 0], [0, -1], [-1, -1]]),
-		northEast: averageCornerHeight(context, [[0, 0], [1, 0], [0, -1], [1, -1]]),
-		southEast: averageCornerHeight(context, [[0, 0], [1, 0], [0, 1], [1, 1]]),
-		southWest: averageCornerHeight(context, [[0, 0], [-1, 0], [0, 1], [-1, 1]]),
+		northWest: averageCornerHeight(context, [-1, 0], [0, -1], [-1, -1]),
+		northEast: averageCornerHeight(context, [1, 0], [0, -1], [1, -1]),
+		southEast: averageCornerHeight(context, [1, 0], [0, 1], [1, 1]),
+		southWest: averageCornerHeight(context, [-1, 0], [0, 1], [-1, 1]),
 	}
 }
 

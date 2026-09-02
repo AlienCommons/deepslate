@@ -35,8 +35,20 @@ describe('fluid surface geometry', () => {
 	it('weights source water more strongly than empty neighboring cells', () => {
 		const heights = getFluidCornerHeights(context({ type: 'water', level: 0 }))
 		for (const height of Object.values(heights)) {
-			expect(height).toBeCloseTo((8 / 9 * 10) / 13)
+			expect(height).toBeCloseTo((8 / 9 * 10) / 12)
 		}
+	})
+
+	it('samples the diagonal only when an adjacent cell contains fluid', () => {
+		const fluid: FluidState = { type: 'water', level: 7 }
+		const heights = getFluidCornerHeights(context(fluid, {
+			'0,0,-1': { fluid },
+			'-1,0,-1': { fluid },
+			'-1,1,-1': { fluid },
+		}))
+
+		expect(heights.northWest).toBeCloseTo((1 * 10 + 2 / 9) / 13)
+		expect(heights.southEast).toBeCloseTo((1 / 9) / 3)
 	})
 
 	it('slopes and flows toward a lower eastern neighbor', () => {
