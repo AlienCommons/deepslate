@@ -15,14 +15,17 @@ function quadAt(z: number) {
 }
 
 function mockGl() {
-	const uploads: Uint16Array[] = []
+	const uploads: (Uint16Array | Uint32Array)[] = []
 	const gl = {
 		ELEMENT_ARRAY_BUFFER: 0x8893,
 		DYNAMIC_DRAW: 0x88e8,
+		UNSIGNED_SHORT: 0x1403,
+		UNSIGNED_INT: 0x1405,
 		createBuffer: () => ({}),
 		deleteBuffer: () => undefined,
 		bindBuffer: () => undefined,
-		bufferData: (_target: number, data: Uint16Array) => uploads.push(data),
+		bufferData: (_target: number, data: Uint16Array | Uint32Array) => uploads.push(data),
+		getExtension: (name: string) => name === 'OES_element_index_uint' ? {} : null,
 	} as unknown as WebGLRenderingContext
 	return { gl, uploads }
 }
@@ -70,5 +73,15 @@ describe('transparent render ordering', () => {
 			0, 1, 2, 0, 2, 3,
 			4, 5, 6, 4, 6, 7,
 		])
+	})
+
+	it('uses 32-bit indices when a mesh exceeds 65,536 vertices', () => {
+		const { gl, uploads } = mockGl()
+		const mesh = new Mesh(Array.from({ length: 16_385 }, () => quadAt(-2)))
+		mesh.rebuild(gl, {})
+
+		expect(uploads.at(-1)).toBeInstanceOf(Uint32Array)
+		expect(mesh.indexType).toBe(gl.UNSIGNED_INT)
+		expect(uploads.at(-1)?.at(-1)).toBe(65_539)
 	})
 })

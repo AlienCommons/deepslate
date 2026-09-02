@@ -15,6 +15,7 @@ export class Mesh {
 	public blockPosBuffer: WebGLBuffer | undefined
 	public lightBuffer: WebGLBuffer | undefined
 	public indexBuffer: WebGLBuffer | undefined
+	public indexType: number = 0x1403 // WebGLRenderingContext.UNSIGNED_SHORT
 
 	public linePosBuffer: WebGLBuffer | undefined
 	public lineColorBuffer: WebGLBuffer | undefined
@@ -182,7 +183,17 @@ export class Mesh {
 		this.indexBuffer ??= gl.createBuffer() ?? undefined
 		if (!this.indexBuffer) throw new Error('Cannot create new buffer')
 
-		const indices = new Uint16Array(order.length * 6)
+		const needsUint32 = this.quadVertices() > 65536
+		if (needsUint32) {
+			const webgl2 = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext
+			if (!webgl2 && !gl.getExtension('OES_element_index_uint')) {
+				throw new Error('Mesh exceeds the 16-bit index limit and OES_element_index_uint is unavailable')
+			}
+		}
+		this.indexType = needsUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT
+		const indices = needsUint32
+			? new Uint32Array(order.length * 6)
+			: new Uint16Array(order.length * 6)
 		for (let outputIndex = 0; outputIndex < order.length; outputIndex += 1) {
 			const vertexIndex = order[outputIndex] * 4
 			indices.set([
