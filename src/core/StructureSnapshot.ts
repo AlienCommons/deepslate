@@ -8,10 +8,10 @@ export interface StructureSnapshot {
 	palette: Array<{ name: string, properties: Record<string, string> }>
 	blocks: Array<{ pos: BlockPos, state: number, nbt?: JsonValue }>
 	entities: Array<{
-		pos: [number, number, number]
-		id: string
-		nbt: JsonValue
-		rotation?: [number, number]
+		pos: [number, number, number],
+		id: string,
+		nbt: JsonValue,
+		rotation?: [number, number],
 	}>
 }
 
