@@ -69,6 +69,7 @@ The renderer accepts data-driven bone and cuboid models, so applications can reg
 
 ## Non-goals
 
+- Procedural world generation and reading Minecraft world-save region files.
 - Reimplementing the complete Minecraft client renderer.
 - Dynamic shadows, colored lights, and path-traced global illumination.
 - Biome-dependent water colors.

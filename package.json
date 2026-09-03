@@ -57,12 +57,10 @@
   },
   "dependencies": {
     "gl-matrix": "^3.4.4",
-    "md5": "^2.3.0",
     "pako": "^3.0.1"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@types/md5": "^2.3.6",
     "@typescript-eslint/eslint-plugin": "^8.69.0",
     "@typescript-eslint/parser": "^8.69.0",
     "benny": "^3.7.1",
