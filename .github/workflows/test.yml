@@ -42,3 +42,6 @@ jobs:
 
       - name: Test
         run: npm test -- --run
+
+      - name: Verify build cleanup and npm package
+        run: npm run test:package

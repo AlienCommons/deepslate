@@ -14,8 +14,8 @@
   "unpkg": "./dist/deepslate.umd.cjs",
   "types": "./lib/index.d.ts",
   "files": [
-    "lib/*",
-    "dist/*",
+    "lib",
+    "dist/deepslate.umd.cjs",
     "!**/*.tsbuildinfo"
   ],
   "exports": {
@@ -46,14 +46,16 @@
     }
   },
   "scripts": {
-    "build": "tsc -b src --clean && tsc -b src && vite build",
-    "build:demo": "vite build demo --outDir ../dist/demo",
+    "clean": "node scripts/clean.mjs",
+    "build": "npm run clean && tsc -b src && vite build",
+    "build:demo": "vite build demo --outDir ../dist/demo --emptyOutDir",
     "dev": "tsc -b -w src",
     "test": "vitest -r ./test",
+    "test:package": "node --test scripts/package.test.mjs",
     "demo": "vite ./demo",
     "benchmark": "esno benchmarks/index.ts",
     "lint": "eslint .",
-    "prepublishOnly": "npm run build"
+    "prepack": "npm run build"
   },
   "dependencies": {
     "gl-matrix": "^3.4.4",

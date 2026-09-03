@@ -10,6 +10,8 @@ This fork is under active development and has not yet been published as a separa
 
 Rendering behavior targets Minecraft Java Edition 26.2. See [Rendering validation](docs/rendering-validation.md) for the comparison scope, results, and known differences.
 
+See [Building and packaging](docs/packaging.md) for build commands, package contents, and packaging regression checks.
+
 For the original stable package, see [misode/deepslate](https://github.com/misode/deepslate).
 
 ## Litematic files
